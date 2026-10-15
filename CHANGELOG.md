@@ -4,6 +4,16 @@ Plain-language notes on every change to the script, newest first. Each entry
 links to the pull request, which holds the exact code change and a longer
 explanation.
 
+## README corrections
+
+The walkthrough's download step named an old version as its example and
+left two shipped files out of the "check the folder" list; the manifest
+description still mentioned a "match" status that no longer exists; the
+Mac setup section had lost its heading; a sentence was repeated; and the
+section explaining why image matching was removed did not account for
+the screenshot sorter added in 1.5.0. All corrected. Nothing in the tools
+changed.
+
 ## A second script pulls one app's screenshots into their own folder
 
 `sort_screenshots.py` runs after the organizer and looks only inside
