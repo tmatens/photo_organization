@@ -93,7 +93,7 @@ EXIF_DATETIME = 306              # when the file was last saved
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="Organize a photo library in place.")
+    p = argparse.ArgumentParser(description="Build an organized, deduplicated COPY of a photo and video library. Originals are never changed.")
     p.add_argument("--source", required=True, action="append", metavar="FOLDER",
                    help="Folder to scan (e.g. an external drive). Repeat the "
                         "option to combine several drives into one library; "

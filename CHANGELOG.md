@@ -4,6 +4,13 @@ Plain-language notes on every change to the script, newest first. Each entry
 links to the pull request, which holds the exact code change and a longer
 explanation.
 
+## A start-to-finish Windows walkthrough
+
+The README now opens with the whole job as ten numbered steps: install
+Python, download the release, plug in the drives, preview, run, pull out
+the screenshots, look through the result, and only then wipe the old
+drives. Nothing in the tool changed.
+
 ## Videos are organized too
 
 Phone and camera videos (MOV, MP4, M4V, 3GP, AVI, MKV, WMV, MTS) are now

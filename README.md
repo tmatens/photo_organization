@@ -29,7 +29,64 @@ went.
 5. **Writes `manifest.csv`** — a spreadsheet listing every photo, where it
    went, its date, and whether it was a duplicate or a match.
 
-## Setup
+## Quick start on Windows: three old drives onto one new SSD
+
+This is the whole job, start to finish. Each step is one command.
+
+1. **Install Python** from https://www.python.org/downloads/ . On the first
+   screen of the installer tick **"Add python.exe to PATH"**, then Install.
+2. **Download this tool** from the Releases page on GitHub (the `.zip`), and
+   unzip it somewhere simple, such as `C:\photo_organizer`.
+3. **Plug in the drives.** All three old drives and the new SSD. Note the
+   drive letters Windows gives them (open File Explorer and look under
+   "This PC"). The examples below use `E:`, `F:`, `G:` for the old drives and
+   `D:` for the new SSD; use yours.
+4. **Open PowerShell in the tool's folder:** in File Explorer, open
+   `C:\photo_organizer`, click in the address bar, type `powershell`, press
+   Enter.
+5. **Install the two packages the tool needs** (once):
+   ```
+   pip install -r requirements.txt
+   pip install -r requirements-optional.txt
+   ```
+   The second line adds iPhone HEIC support. If it fails, skip it; the tool
+   will tell you at the end how many HEIC photos it could not include.
+6. **Preview.** Nothing is copied; this only reads the drives and writes a
+   spreadsheet of what it would do:
+   ```
+   python organize_photos.py --source E:\ --source F:\ --source G:\ --output D:\Organized --dry-run
+   ```
+   This takes a while on big drives. When it finishes, open
+   `D:\Organized\manifest_dryrun.csv` in Excel and look at a few rows: the
+   `destination_path` column is where each file would go, `status` says
+   whether it would be copied or is a duplicate of something else, and
+   `date_taken` says where the date came from.
+7. **Run for real.** Same command without `--dry-run`:
+   ```
+   python organize_photos.py --source E:\ --source F:\ --source G:\ --output D:\Organized
+   ```
+   If it is interrupted, run the same command again; it continues where it
+   stopped.
+8. **Pull out the music-app screenshots** (optional). Find one of them, note
+   its path, and run the same command once more with the example added:
+   ```
+   python organize_photos.py --source E:\ --source F:\ --source G:\ --output D:\Organized --example "E:\Screenshots\IMG_1234.PNG" --example-chrome
+   ```
+   Because the earlier run is remembered, only files not yet handled are
+   processed. To re-sort everything with the example, delete `D:\Organized`
+   first and run this command instead of step 7.
+9. **Look through `D:\Organized`:**
+   - `2019\`, `2020\`, ... — photos and videos with a known date.
+   - `matched_example\` — the screenshots that matched your example.
+   - `_review\` — everything with no real date: screenshots, memes, images
+     from messaging apps, downloads. Sorted by file date inside. Comb
+     through and keep or delete as you like.
+   - `_duplicates\` — only appears if you used `--dup-threshold`.
+   - `manifest.csv` — one line per file on the old drives saying what
+     happened to it.
+10. **Only when you are happy with the new drive**, wipe the old ones. The
+    tool never deletes anything; that last step is yours.
+
 
 You need Python 3.10 or newer.
 
