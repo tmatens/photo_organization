@@ -4,6 +4,17 @@ Plain-language notes on every change to the script, newest first. Each entry
 links to the pull request, which holds the exact code change and a longer
 explanation.
 
+## A quick sample before the long wait
+
+`--sample 500` processes 500 files spread evenly from the first file on
+the first drive to the last file on the last, instead of everything. With
+`--dry-run` that gives a representative preview of three drives in a few
+minutes: a mix of old and new folders, camera photos and screenshots,
+every drive. The walkthrough now has this as the step before the full
+preview. The same spacing is used every time, so two samples give the
+same answer. A sample can also be run for real; the full run afterwards
+skips whatever the sample already copied.
+
 ## Only a camera's own date puts a file in the main library
 
 Before, a timestamp in a filename, or an EXIF save time, was enough to

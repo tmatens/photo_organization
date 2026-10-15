@@ -63,8 +63,17 @@ This is the whole job, start to finish. Each step is one command.
    ```
    The second line adds iPhone HEIC support. If it fails, skip it; the tool
    will tell you at the end how many HEIC photos it could not include.
-6. **Preview.** Nothing is copied; this only reads the drives and writes a
-   spreadsheet of what it would do:
+6. **Quick sample first** (a few minutes). Nothing is copied. This looks
+   at 500 files spread evenly across all three drives and writes a
+   spreadsheet of what it would do with them:
+   ```
+   python organize_photos.py --source E:\ --source F:\ --source G:\ --output D:\Organized --dry-run --sample 500
+   ```
+   Open `D:\Organized\manifest_dryrun.csv` in Excel. If the pattern looks
+   right (camera photos under years and months, screenshots and odds and
+   ends under `_review`), continue. If not, this is the moment to ask.
+7. **Full preview.** Same, for every file. This takes a while on big
+   drives:
    ```
    python organize_photos.py --source E:\ --source F:\ --source G:\ --output D:\Organized --dry-run
    ```
@@ -73,7 +82,7 @@ This is the whole job, start to finish. Each step is one command.
    `destination_path` column is where each file would go, `status` says
    whether it would be copied or is a duplicate of something else, and
    `date_taken` says where the date came from.
-7. **Run for real.** Same command without `--dry-run`:
+8. **Run for real.** Same command without `--dry-run`:
    ```
    python organize_photos.py --source E:\ --source F:\ --source G:\ --output D:\Organized
    ```
@@ -88,7 +97,7 @@ This is the whole job, start to finish. Each step is one command.
    ```
    The tool remembers what it has already copied, so a photo on F: that was
    already copied from E: is recognised and not copied twice.
-8. **Look through `D:\Organized`:**
+9. **Look through `D:\Organized`:**
    - `2019\`, `2020\`, ... — photos and videos with a known date.
    - `_review\` — everything that is not a camera-dated photo or video, in
      three sub-folders so each can be gone through on its own:
@@ -103,8 +112,8 @@ This is the whole job, start to finish. Each step is one command.
      All three are sorted by month inside.
    - `manifest.csv` — one line per file on the old drives saying what
      happened to it.
-9. **Only when you are happy with the new drive**, wipe the old ones. The
-   tool never deletes anything; that last step is yours.
+10. **Only when you are happy with the new drive**, wipe the old ones. The
+    tool never deletes anything; that last step is yours.
 
 
 You need Python 3.10 or newer.
@@ -153,6 +162,7 @@ python3 organize_photos.py --source /Volumes/MyDrive --output ~/Organized
 | Option | What it does |
 |---|---|
 | `--dry-run` | Scan and report only; copy nothing |
+| `--sample N` | Process only N files, spread evenly across every drive and folder, to see results in minutes. A later full run skips whatever a sample already copied |
 | `--keep-dupes` | Also copy identical duplicates into `_duplicates/` instead of only listing them |
 | `--review-folder NAME` | Folder for screenshots and anything without a camera date (default `_review`) |
 | `--png-is-photo` | Treat PNG and `Screenshot...` files like any other file instead of sending them straight to the review folder |
