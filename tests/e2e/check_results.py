@@ -53,6 +53,7 @@ def main(output):
         assert r["status"] == "matched-example", (name, r["status"])
         assert rel(r).startswith("matched_example/2022/03/"), rel(r)
     assert one("other_app.png")["status"] == "copied"
+    assert rel(one("other_app.png")).startswith("_review/2"), rel(one("other_app.png"))
     assert "example.png" not in by_name, "the example itself must not be processed"
 
     # Undated download to review; deep path found; junk ignored.

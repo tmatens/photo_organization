@@ -4,6 +4,23 @@ Plain-language notes on every change to the script, newest first. Each entry
 links to the pull request, which holds the exact code change and a longer
 explanation.
 
+## Every screenshot goes to the review folder
+
+Screenshots used to be treated like photos when they carried a date, which
+Android screenshots always do in their filename, so they landed in the
+main timeline between real photos. Now any PNG file, and any file named
+`Screenshot...` (Samsung saves screenshots as JPEG with that name), goes
+to `_review/`, sorted by month inside it. Cameras and phones never save a
+photo as PNG, so a PNG is a screenshot, a meme or a graphic, not a photo.
+The rule can be switched off with `--png-is-photo`.
+
+With this, the review folder holds everything that is not a dated camera
+photo or video: screenshots, memes, messaging-app images and downloads.
+The example-image matching still works for anyone who wants one app's
+screenshots in a folder of their own, but the Windows walkthrough no
+longer depends on it. The option that names the folder is now
+`--review-folder`.
+
 ## A start-to-finish Windows walkthrough
 
 The README now opens with the whole job as ten numbered steps: install

@@ -70,24 +70,24 @@ def test_heic_without_the_optional_package_is_reported_not_silent(library):
 def test_photos_without_an_exif_date_go_to_their_own_tree(library):
     src, out = library
     write_photo(src / "camera.jpg", seed=1, date_original="2021:05:04 10:11:12")
-    write_photo(src / "screenshot.jpg", seed=2)
+    write_photo(src / "meme.jpg", seed=2)
     proc = run_script("--source", src, "--output", out)
     rows = names(out)
-    assert os.sep + "_review" + os.sep in rows["screenshot.jpg"]["destination_path"]
-    assert rows["screenshot.jpg"]["date_taken"].endswith("(file-date)")
+    assert os.sep + "_review" + os.sep in rows["meme.jpg"]["destination_path"]
+    assert rows["meme.jpg"]["date_taken"].endswith("(file-date)")
     assert os.sep + "_review" + os.sep not in rows["camera.jpg"]["destination_path"]
-    assert "copied, no EXIF date: 1" in proc.stdout
+    assert "to _review/: 0 screenshots, 1 with no date" in proc.stdout
 
 
-def test_undated_folder_name_and_mix_undated(library):
+def test_review_folder_name_and_mix_undated(library):
     src, out = library
-    write_photo(src / "screenshot.jpg", seed=2)
-    run_script("--source", src, "--output", out, "--undated-folder", "guessed")
-    assert os.sep + "guessed" + os.sep in names(out)["screenshot.jpg"]["destination_path"]
+    write_photo(src / "meme.jpg", seed=2)
+    run_script("--source", src, "--output", out, "--review-folder", "guessed")
+    assert os.sep + "guessed" + os.sep in names(out)["meme.jpg"]["destination_path"]
 
     out2 = out.parent / "output2"
     run_script("--source", src, "--output", out2, "--mix-undated")
-    dest = names(out2)["screenshot.jpg"]["destination_path"]
-    assert "_review" not in dest
+    dest = names(out2)["meme.jpg"]["destination_path"]
+    assert os.sep + "_review" + os.sep not in os.path.relpath(dest, out2)
     year = os.path.relpath(dest, out2).split(os.sep)[0]
     assert year.isdigit() and len(year) == 4

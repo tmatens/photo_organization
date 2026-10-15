@@ -20,13 +20,17 @@ went.
    capture date but the filename carries a timestamp (phones and apps write
    names like `IMG_20220314_100000.jpg` or `Screenshot_20220314-100000.png`),
    that is used instead. Videos use the filename timestamp or the date
-   stored inside MOV/MP4 files. Anything with no date at all goes into a
-   separate `_review/YYYY/MM` tree sorted by file date, so a guessed date
-   never mixes with a real one.
-4. **Pulls out lookalikes** — give it an example image (e.g. one of your
-   music-app screenshots) and it copies every visually similar photo into its
-   own folder.
-5. **Writes `manifest.csv`** — a spreadsheet listing every photo, where it
+   stored inside MOV/MP4 files.
+4. **Keeps non-photos out of the timeline.** Screenshots (any PNG, or a
+   file named `Screenshot...`) and anything with no date at all (memes,
+   images from messaging apps, downloads) go into a separate
+   `_review/YYYY/MM` tree, sorted by month, for you to look through.
+   Cameras and phones never save a photo as PNG, so a PNG is a screenshot,
+   a meme or a graphic.
+5. **Optionally pulls out lookalikes** — give it an example image (e.g. one
+   of your music-app screenshots) and it copies every visually similar photo
+   into its own folder instead of `_review`.
+6. **Writes `manifest.csv`** — a spreadsheet listing every photo, where it
    went, its date, and whether it was a duplicate or a match.
 
 ## Quick start on Windows: three old drives onto one new SSD
@@ -67,25 +71,16 @@ This is the whole job, start to finish. Each step is one command.
    ```
    If it is interrupted, run the same command again; it continues where it
    stopped.
-8. **Pull out the music-app screenshots** (optional). Find one of them, note
-   its path, and run the same command once more with the example added:
-   ```
-   python organize_photos.py --source E:\ --source F:\ --source G:\ --output D:\Organized --example "E:\Screenshots\IMG_1234.PNG" --example-chrome
-   ```
-   Because the earlier run is remembered, only files not yet handled are
-   processed. To re-sort everything with the example, delete `D:\Organized`
-   first and run this command instead of step 7.
-9. **Look through `D:\Organized`:**
+8. **Look through `D:\Organized`:**
    - `2019\`, `2020\`, ... — photos and videos with a known date.
-   - `matched_example\` — the screenshots that matched your example.
-   - `_review\` — everything with no real date: screenshots, memes, images
-     from messaging apps, downloads. Sorted by file date inside. Comb
-     through and keep or delete as you like.
+   - `_review\` — screenshots, memes, images from messaging apps,
+     downloads: everything that is not a camera photo or has no real date.
+     Sorted by month inside. Comb through and keep or delete as you like.
    - `_duplicates\` — only appears if you used `--dup-threshold`.
    - `manifest.csv` — one line per file on the old drives saying what
      happened to it.
-10. **Only when you are happy with the new drive**, wipe the old ones. The
-    tool never deletes anything; that last step is yours.
+9. **Only when you are happy with the new drive**, wipe the old ones. The
+   tool never deletes anything; that last step is yours.
 
 
 You need Python 3.10 or newer.
@@ -129,7 +124,8 @@ python organize_photos.py --source E:\ --source F:\ --source G:\ --output D:\Org
 python3 organize_photos.py --source /Volumes/MyDrive --output ~/Organized
 ```
 
-**3. Also extract all music-app screenshots** (use any one of them as the example):
+**3. Optional: put one app's screenshots in their own folder** instead of
+`_review` (use any one of them as the example):
 ```
 python3 organize_photos.py --source /Volumes/MyDrive --output ~/Organized \
     --example ~/screenshot_example.png --example-chrome
@@ -151,7 +147,8 @@ stricter, higher = looser).
 | `--similar-threshold N` | Strictness of matching, 0–64 (default 10) |
 | `--dup-threshold N` | Also group photos that look the same, 0–64 (off by default; 2–4 catches thumbnails and re-saved copies; 6–10 also catches burst frames and small edits). The largest version is kept; the rest go to `_duplicates/` |
 | `--keep-dupes` | Also copy identical duplicates into `_duplicates/` instead of only listing them |
-| `--undated-folder NAME` | Folder for photos with no EXIF date (default `_review`) |
+| `--review-folder NAME` | Folder for screenshots and undated photos (default `_review`) |
+| `--png-is-photo` | Treat PNG and `Screenshot...` files like any other photo instead of sending them to the review folder |
 | `--mix-undated` | File undated photos into the main `YYYY/MM` tree by file date instead |
 
 ## Notes
