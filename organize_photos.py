@@ -57,8 +57,14 @@ IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
 if HEIC_OK:
     IMAGE_EXTS |= {".heic", ".heif"}
 
-EXIF_DATETIME_ORIGINAL = 36867
-EXIF_DATETIME = 306
+# EXIF date tags, in order of preference. The first two live in the Exif
+# sub-IFD, which Pillow's getexif() does NOT include: it has to be opened with
+# get_ifd(). DateTime (306) is in the top-level IFD0 and is the time the file
+# was last saved, not the time the photo was taken, so it is the last resort.
+EXIF_IFD_POINTER = 34665
+EXIF_DATETIME_ORIGINAL = 36867   # when the shutter fired
+EXIF_DATETIME_DIGITIZED = 36868  # when it was scanned or imported
+EXIF_DATETIME = 306              # when the file was last saved
 
 
 def parse_args():
@@ -99,18 +105,43 @@ def iter_images(root):
                 yield os.path.join(dirpath, name)
 
 
+def parse_exif_datetime(val):
+    """Parse an EXIF 'YYYY:MM:DD HH:MM:SS' string; None if absent or junk.
+
+    Some cameras pad the string with NUL bytes, and some write all zeros as a
+    placeholder; both must fall through to the next tag rather than crash.
+    """
+    if isinstance(val, bytes):
+        val = val.decode("ascii", "ignore")
+    if not isinstance(val, str):
+        return None
+    val = val.strip("\x00 \t\r\n")
+    try:
+        return datetime.strptime(val, "%Y:%m:%d %H:%M:%S")
+    except ValueError:
+        return None
+
+
 def date_taken(path):
-    """Return (datetime, source) using EXIF, else file modification time."""
+    """Return (datetime, source) for when the photo was taken.
+
+    source is one of: exif-original (capture time), exif-digitized (scan or
+    import time), exif-modified (last save; weakest), file-date (no EXIF at
+    all; the file's modification time, which may just be when it was copied).
+    """
     try:
         with Image.open(path) as img:
             exif = img.getexif()
-            for tag in (EXIF_DATETIME_ORIGINAL, EXIF_DATETIME):
-                val = exif.get(tag)
-                if val:
-                    try:
-                        return datetime.strptime(val, "%Y:%m:%d %H:%M:%S"), "exif"
-                    except (ValueError, TypeError):
-                        pass
+            sub = exif.get_ifd(EXIF_IFD_POINTER)
+            candidates = (
+                (sub, EXIF_DATETIME_ORIGINAL, "exif-original"),
+                (sub, EXIF_DATETIME_DIGITIZED, "exif-digitized"),
+                (exif, EXIF_DATETIME, "exif-modified"),
+            )
+            for table, tag, label in candidates:
+                dt = parse_exif_datetime(table.get(tag))
+                if dt is not None:
+                    return dt, label
     except Exception:
         pass
     ts = os.path.getmtime(path)
