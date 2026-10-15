@@ -56,12 +56,11 @@ def test_dry_run_copies_nothing(library):
     assert not out.exists() or not list(out.rglob("*.jpg"))
 
 
-def test_output_inside_source_is_refused(library):
+def test_output_equal_to_source_is_refused(library):
     src, _ = library
     write_photo(src / "one.jpg", seed=1)
-    proc = run_script("--source", src, "--output", src / "Organized", check=False)
+    proc = run_script("--source", src, "--output", src, check=False)
     assert proc.returncode != 0
-    assert not (src / "Organized").exists()
 
 
 def test_unreadable_file_is_reported_not_fatal(library):

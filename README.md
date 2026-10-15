@@ -14,8 +14,10 @@ builds an organized *copy* and tells you exactly where everything went.
    a burst frame), keeps the largest version, and puts the rest in a review
    folder.
 3. **Sorts by date taken** into `YYYY/MM` folders with clean filenames like
-   `20220314_100000.jpg`. Uses the photo's EXIF data; screenshots (which have
-   no EXIF data) fall back to the file date.
+   `20220314_100000.jpg`, using the photo's EXIF data. Photos with no EXIF
+   date at all (screenshots, images received through messaging apps,
+   downloads) go into a separate `_review/YYYY/MM` tree sorted by file
+   date, so a guessed date never mixes with a real one.
 4. **Pulls out lookalikes** — give it an example image (e.g. one of your
    music-app screenshots) and it copies every visually similar photo into its
    own folder.
@@ -82,11 +84,19 @@ stricter, higher = looser).
 | `--similar-threshold N` | Strictness of matching, 0–64 (default 10) |
 | `--dup-threshold N` | Also group photos that look the same, 0–64 (off by default; 2–4 catches thumbnails and re-saved copies; 6–10 also catches burst frames and small edits). The largest version is kept; the rest go to `_duplicates/` |
 | `--keep-dupes` | Also copy identical duplicates into `_duplicates/` instead of only listing them |
+| `--undated-folder NAME` | Folder for photos with no EXIF date (default `_review`) |
+| `--mix-undated` | File undated photos into the main `YYYY/MM` tree by file date instead |
 
 ## Notes
 
-- The `--output` folder must not be inside `--source`. A different folder on
-  the same external drive works fine if there's free space.
+- The `--output` folder can be anywhere, including on the same external
+  drive or inside the source folder; the script never scans its own output.
+- Videos are not copied. The script organizes photos only and tells you at
+  the end how many video files it left behind. Hidden files (names starting
+  with `.`) and system folders such as the Recycle Bin are ignored.
+- The file date used for `_review/` photos is often just the day they were
+  copied or downloaded, not the day they were taken. Treat that tree as
+  "needs a look", not as a timeline.
 - Large libraries take a while (roughly 1–2 hours per 50,000 photos). The
   script prints progress as it goes. If it is interrupted, run the same
   command again: it reads `manifest.csv`, skips everything already done, and

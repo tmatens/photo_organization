@@ -4,6 +4,34 @@ Plain-language notes on every change to the script, newest first. Each entry
 links to the pull request, which holds the exact code change and a longer
 explanation.
 
+## Photos with no real date get their own folder, and the scan skips junk
+
+**Undated photos.** A screenshot, a picture received through a messaging
+app, or a download has no EXIF date. The script used to file those by the
+file's modification time, which is usually the day it was copied or
+downloaded, into the same `YYYY/MM` folders as real camera photos. The
+guesses were indistinguishable from the facts. They now go into
+`_review/YYYY/MM/` instead, so the main library is only photos with a
+known date, and the undated ones are together in one place to look over.
+`--mix-undated` restores the old behaviour; `--undated-folder` renames the
+folder.
+
+**What the scan ignores.** Hidden files (anything starting with `.`,
+including the `._photo.jpg` sidecar files macOS leaves on external drives)
+and system folders such as the Recycle Bin, Synology `@eaDir` thumbnail
+caches, and Spotlight indexes are skipped. Before, the sidecars were
+counted as unreadable photos and the thumbnail caches were copied as if
+they were photos.
+
+**What it tells you it left behind.** Videos are not copied, and the
+summary now says how many were found. iPhone HEIC photos need an optional
+package; without it they were silently skipped, and the summary now says
+how many and how to include them.
+
+**Output location.** The output folder can now be inside the source
+folder, as the README always claimed. The script skips its own output
+when scanning, so re-running does not pick up the organized copies.
+
 ## "Duplicate" now means identical, and the best copy is the one kept
 
 Before this change, two photos counted as duplicates when a visual
