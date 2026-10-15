@@ -4,6 +4,15 @@ Plain-language notes on every change to the script, newest first. Each entry
 links to the pull request, which holds the exact code change and a longer
 explanation.
 
+## The download step is spelled out
+
+Step 2 of the Windows walkthrough now says exactly where to click on the
+GitHub releases page, which file to download (and which two links to
+ignore), how to use Windows' "Extract All..." and where to point it, and
+how to check the result. The release zip is now flat, with the files at
+the top level, so extracting into `C:\photo_organizer` puts the script
+directly there as the later steps assume. Nothing in the tool changed.
+
 ## Look-alike grouping is gone; the review folder needs a real look
 
 The optional `--dup-threshold` grouping of photos that merely looked the

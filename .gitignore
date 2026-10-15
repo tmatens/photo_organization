@@ -6,3 +6,4 @@ venv/
 # Script output never belongs in the repo.
 manifest.csv
 Organized/
+photo_organizer-*.zip
