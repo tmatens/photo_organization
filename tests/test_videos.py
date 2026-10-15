@@ -3,7 +3,7 @@ the MOV/MP4 header, then sent to the review folder."""
 import os
 from datetime import datetime, timezone
 
-from conftest import read_manifest, run_script, write_mp4, write_photo
+from conftest import read_manifest, run_script, write_mp4
 
 
 def rows(out):
@@ -57,15 +57,6 @@ def test_identical_videos_are_copied_once(library):
     assert sorted(x["status"] for x in r.values()) == ["copied", "duplicate"]
     assert all(x["perceptual_hash"] == "" for x in r.values())
     assert len(list(out.rglob("*.mov"))) == 1
-
-
-def test_videos_never_match_the_example_image(library):
-    src, out = library
-    example = write_photo(src / "example.jpg", seed=1)
-    write_mp4(src / "clip.mov", created=datetime(2021, 5, 4, 15, 11, 12))
-    run_script("--source", src, "--output", out, "--example", example,
-               "--similar-threshold", "64")
-    assert rows(out)["clip.mov"]["status"] == "copied"
 
 
 def test_truncated_video_is_still_copied(library):

@@ -51,10 +51,10 @@ def main(d1, d2, d3):
     os.makedirs(longpath(str(deep)), exist_ok=True)
     write_photo(longpath(str(deep / "IMG_20200101_120000.jpg")), seed=70)
 
-    # Drive 3: mostly screenshots, and the example to match against.
+    # Drive 3: mostly screenshots.
     write_screenshot(d3 / "Screenshots" / "Screenshot_20220316-120000.png",
                      chrome_seed=100, middle_seed=3)
-    write_screenshot(d3 / "Screenshots" / "example.png", chrome_seed=100, middle_seed=9)
+    write_screenshot(d3 / "Screenshots" / "IMG_0099.PNG", chrome_seed=100, middle_seed=9)
     write_screenshot(d3 / "Screenshots" / "other_app.png", chrome_seed=200, middle_seed=1)
     write_mp4(d3 / "Videos" / "VID_20220314_100000.mp4", created=datetime(2021, 1, 1, 0, 0, 0))
     write_mp4(d3 / "Videos" / "clip.mp4")                                           # undated

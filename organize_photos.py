@@ -24,10 +24,7 @@ What it does:
      with real ones. Screenshots (any PNG, or a file named Screenshot...)
      always go to _review, whatever date they carry: cameras never write
      PNG, so a PNG is a screenshot, a meme or a graphic, not a photo.
-  4. Optionally pulls out every photo that looks like an example image you
-     provide (--example), e.g. all your music-app screenshots, into its own
-     folder.
-  5. Writes a manifest.csv describing where everything went, one line at a
+  4. Writes a manifest.csv describing where everything went, one line at a
      time as it works, so an interrupted run still leaves a complete record.
      A dry run writes manifest_dryrun.csv instead, with the destinations a
      real run would use. Re-running after an interruption picks up where the
@@ -38,8 +35,7 @@ Optional (for iPhone HEIC photos):  pip install pillow-heif
 
 Usage:
   python organize_photos.py --source E:\\ --source F:\\ --output D:\\Organized
-  python organize_photos.py --source /Volumes/MyDrive --output ~/Organized \\
-      --example ~/screenshot_example.png --dry-run
+  python organize_photos.py --source /Volumes/MyDrive --output ~/Organized --dry-run
 """
 
 import argparse
@@ -102,19 +98,6 @@ def parse_args():
                         "duplicates are found across all of them.")
     p.add_argument("--output", required=True,
                    help="Folder where the organized copy will be built.")
-    p.add_argument("--example", default=None,
-                   help="Example image: photos visually similar to this are "
-                        "pulled into their own folder.")
-    p.add_argument("--similar-name", default="matched_example",
-                   help="Folder name for photos matching --example.")
-    p.add_argument("--similar-threshold", type=int, default=10,
-                   help="Max perceptual-hash distance (0-64) to count as "
-                        "similar to --example. Lower = stricter. Default 10.")
-    p.add_argument("--example-chrome", action="store_true",
-                   help="Match on the app's UI chrome only (top and bottom "
-                        "bands), ignoring the variable middle area. Best for "
-                        "screenshots of a music app where the artwork changes "
-                        "with every song.")
     p.add_argument("--dup-threshold", type=int, default=None, metavar="N",
                    help="Also group photos that LOOK the same: perceptual-hash "
                         "distance 0-64. 2-4 catches thumbnails and re-saved "
@@ -303,22 +286,6 @@ def exif_date(img):
     return None, None
 
 
-def chrome_hash(img):
-    """Perceptual hash of only the top and bottom bands of an image.
-
-    For screenshots of music apps, the middle (album art) changes with
-    every song while the UI chrome stays the same. Hashing just the chrome
-    matches all such screenshots regardless of content in the middle.
-    """
-    W, H = img.size
-    top = img.crop((0, 0, W, int(H * 0.16)))
-    bottom = img.crop((0, int(H * 0.56), W, H))
-    comp = Image.new("RGB", (W, top.height + bottom.height), "white")
-    comp.paste(top, (0, 0))
-    comp.paste(bottom, (0, top.height))
-    return imagehash.phash(comp)
-
-
 def content_hash(path):
     """SHA-256 of the file's bytes: two files with the same value are
     identical copies, whatever their names or dates."""
@@ -386,8 +353,7 @@ def quicktime_creation_time(path):
 
 def inspect_video(path):
     """What the script needs to know about a video: content hash and date.
-    Videos have no perceptual hash, so they are deduplicated by content only
-    and never matched against the example image."""
+    Videos have no perceptual hash, so they are deduplicated by content only."""
     try:
         sha = content_hash(path)
     except OSError:
@@ -399,37 +365,32 @@ def inspect_video(path):
         dsrc = "video-metadata"
     if dt is None:
         dt, dsrc = datetime.fromtimestamp(os.path.getmtime(longpath(path))), "file-date"
-    return {"kind": "video", "sha": sha, "hash": None, "chrome": None,
+    return {"kind": "video", "sha": sha, "hash": None,
             "dims": "", "pixels": 0, "date": dt, "date_source": dsrc}
 
 
-def inspect_file(path, need_chrome):
+def inspect_file(path):
     """inspect_image() or inspect_video() depending on the extension."""
     if os.path.splitext(path)[1].lower() in VIDEO_EXTS:
         return inspect_video(path)
-    return inspect_image(path, need_chrome)
+    return inspect_image(path)
 
 
-def inspect_image(path, need_chrome):
+def inspect_image(path):
     """Everything the script needs to know about one image, read in a single
-    open: content hash, perceptual hash, chrome hash (if asked), dimensions
-    and date. Returns None if the file cannot be read as an image."""
+    open: content hash, perceptual hash, dimensions and date. Returns None
+    if the file cannot be read as an image."""
     try:
         sha = content_hash(path)
         with Image.open(longpath(path)) as img:
             h = imagehash.phash(img)
-            ch = chrome_hash(img) if need_chrome else None
             w, hgt = img.size
             dt, dsrc = best_date(path, img)
     except Exception:
         return None
-    return {"kind": "image", "sha": sha, "hash": h, "chrome": ch,
+    return {"kind": "image", "sha": sha, "hash": h,
             "dims": "%dx%d" % (w, hgt), "pixels": w * hgt, "date": dt,
             "date_source": dsrc}
-
-
-def hamming(a, b):
-    return int(a - b)
 
 
 def hash_int(h):
@@ -482,13 +443,13 @@ MANIFEST_COLUMNS = ["source_path", "destination_path", "date_taken",
                     "duplicate_of", "status"]
 
 
-def scan(todo, need_chrome):
-    """Read every image once. Returns one entry per path, in path order."""
+def scan(todo):
+    """Read every file once. Returns one entry per path, in path order."""
     entries = []
     for i, path in enumerate(todo, 1):
         if i % 500 == 0 or i == len(todo):
             print("  scanned %d/%d ..." % (i, len(todo)))
-        info = inspect_file(path, need_chrome)
+        info = inspect_file(path)
         entry = {"path": path, "ext": os.path.splitext(path)[1].lower(),
                  "status": None, "dest": "", "dupe_of": ""}
         if info is None:
@@ -565,20 +526,6 @@ def main():
     if args.dup_threshold is not None and not 0 <= args.dup_threshold <= 64:
         sys.exit("--dup-threshold must be between 0 and 64.")
 
-    example_hash = None
-    example_chrome = None
-    example_abs = os.path.abspath(args.example) if args.example else None
-    if example_abs:
-        if not os.path.isfile(example_abs):
-            sys.exit("Example image not found: %s" % example_abs)
-        info = inspect_image(example_abs, args.example_chrome)
-        if info is None:
-            sys.exit("Could not read example image: %s" % example_abs)
-        example_hash, example_chrome = info["hash"], info["chrome"]
-        print("Example image loaded; similarity threshold = %d%s"
-              % (args.similar_threshold,
-                 " (UI-chrome matching)" if args.example_chrome else ""))
-
     # The manifest is the record of what has been done. A real run appends
     # to it and skips anything already listed, which is what makes re-running
     # after an interruption safe. A dry run writes its own file and never
@@ -591,8 +538,7 @@ def main():
     paths = []
     for source in sources:
         print("Scanning %s ..." % source)
-        paths.extend(p for p in iter_images(source, skipped, exclude=output)
-                     if os.path.abspath(p) != example_abs)
+        paths.extend(iter_images(source, skipped, exclude=output))
     print("Found %d photo and video files." % len(paths))
     todo = [p for p in paths if p not in done]
     if done:
@@ -605,7 +551,7 @@ def main():
     kept_phash = []    # (int perceptual hash, source path) of kept copies
     taken = set()      # destination paths planned or already used
     for src_path, row in done.items():
-        if row["status"] in ("copied", "matched-example"):
+        if row["status"] == "copied":
             if row.get("content_hash"):
                 seen_sha.setdefault(row["content_hash"], src_path)
             if row.get("perceptual_hash"):
@@ -616,7 +562,7 @@ def main():
     # Step 1: read every photo. Step 2: decide duplicates with the whole
     # picture in hand, so the best copy of each photo can be chosen rather
     # than whichever one happened to be seen first.
-    entries = scan(todo, args.example_chrome)
+    entries = scan(todo)
     find_duplicates(entries, args, seen_sha, kept_phash)
 
     # Step 3: copy and record, one line at a time.
@@ -672,23 +618,13 @@ def main():
                 record(e)
                 continue
 
-            # Date + similarity (similarity uses the chrome hash when requested)
+            # Where does it go?
             dt, dsrc = e["date"], e["date_source"]
-            sim_hash = e["chrome"] if args.example_chrome else e["hash"]
-            ex_hash = example_chrome if args.example_chrome else example_hash
-            similar = (ex_hash is not None and sim_hash is not None
-                       and hamming(sim_hash, ex_hash) <= args.similar_threshold)
-
             stem = dt.strftime("%Y%m%d_%H%M%S")
             undated = dsrc == "file-date" and not args.mix_undated
             screenshot = (e["kind"] == "image" and not args.png_is_photo
                           and is_screenshot(e["path"]))
-            if similar:
-                folder = os.path.join(output, args.similar_name,
-                                      dt.strftime("%Y"), dt.strftime("%m"))
-                e["status"] = "matched-example"
-                bucket = "matched"
-            elif screenshot or undated:
+            if screenshot or undated:
                 # Not a camera photo, or no real date: keep these out of the
                 # main timeline, but still sorted by month for browsing.
                 folder = os.path.join(output, args.review_folder,
@@ -713,7 +649,6 @@ def main():
     print("  copied:            %d" % stats["copied"])
     print("  to %s/: %d screenshots, %d with no date"
           % (args.review_folder, stats["screenshots"], stats["undated"]))
-    print("  matched example:   %d" % stats["matched"])
     print("  (videos among the above: %d)" % stats["videos"])
     print("  duplicates skipped:%d" % stats["duplicate"])
     if args.dup_threshold is not None:

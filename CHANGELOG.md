@@ -4,6 +4,15 @@ Plain-language notes on every change to the script, newest first. Each entry
 links to the pull request, which holds the exact code change and a longer
 explanation.
 
+## The example-image matching is gone
+
+The option to pull out every photo that looked like one example image has
+been removed, along with its three companion options. With every
+screenshot now going to `_review/` regardless, there was nothing left for
+it to do that a quick look through that folder does not do better, and
+fewer options means fewer ways to get a surprising result. The manifest
+no longer has a `matched-example` status. Nothing else changed.
+
 ## Every screenshot goes to the review folder
 
 Screenshots used to be treated like photos when they carried a date, which

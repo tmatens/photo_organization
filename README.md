@@ -27,10 +27,7 @@ went.
    `_review/YYYY/MM` tree, sorted by month, for you to look through.
    Cameras and phones never save a photo as PNG, so a PNG is a screenshot,
    a meme or a graphic.
-5. **Optionally pulls out lookalikes** — give it an example image (e.g. one
-   of your music-app screenshots) and it copies every visually similar photo
-   into its own folder instead of `_review`.
-6. **Writes `manifest.csv`** — a spreadsheet listing every photo, where it
+5. **Writes `manifest.csv`** — a spreadsheet listing every photo, where it
    went, its date, and whether it was a duplicate or a match.
 
 ## Quick start on Windows: three old drives onto one new SSD
@@ -124,27 +121,11 @@ python organize_photos.py --source E:\ --source F:\ --source G:\ --output D:\Org
 python3 organize_photos.py --source /Volumes/MyDrive --output ~/Organized
 ```
 
-**3. Optional: put one app's screenshots in their own folder** instead of
-`_review` (use any one of them as the example):
-```
-python3 organize_photos.py --source /Volumes/MyDrive --output ~/Organized \
-    --example ~/screenshot_example.png --example-chrome
-```
-Matches go into `Organized/matched_example/`. The `--example-chrome` flag is
-the key detail for app screenshots: it compares only the app's UI (top and bottom),
-ignoring the album art that changes with every song — so screenshots from
-different songs still match, while regular photos don't. If it's catching too
-much or too little, tune with `--similar-threshold` (default 10; lower =
-stricter, higher = looser).
-
 ## Useful options
 
 | Option | What it does |
 |---|---|
 | `--dry-run` | Scan and report only; copy nothing |
-| `--example FILE` | Pull visually similar photos into their own folder |
-| `--similar-name NAME` | Folder name for matches (default `matched_example`) |
-| `--similar-threshold N` | Strictness of matching, 0–64 (default 10) |
 | `--dup-threshold N` | Also group photos that look the same, 0–64 (off by default; 2–4 catches thumbnails and re-saved copies; 6–10 also catches burst frames and small edits). The largest version is kept; the rest go to `_duplicates/` |
 | `--keep-dupes` | Also copy identical duplicates into `_duplicates/` instead of only listing them |
 | `--review-folder NAME` | Folder for screenshots and undated photos (default `_review`) |
@@ -160,8 +141,7 @@ stricter, higher = looser).
   Folder trees deeper than Windows' usual 260-character limit are handled;
   nothing on the drive needs renaming first.
 - Videos are organized alongside photos. Identical videos are copied once;
-  the look-alike grouping (`--dup-threshold`) and the example matching apply
-  to photos only. Hidden files (names starting with `.`) and system folders
+  the look-alike grouping (`--dup-threshold`) applies to photos only. Hidden files (names starting with `.`) and system folders
   such as the Recycle Bin are ignored.
 - The file date used for `_review/` photos is often just the day they were
   copied or downloaded, not the day they were taken. Treat that tree as
