@@ -93,3 +93,13 @@ def library(tmp_path):
     out = tmp_path / "output"
     src.mkdir()
     return src, out
+
+
+def write_resized(src, dest, size, quality=85):
+    """A smaller copy of an existing photo: what a thumbnail, a messaging-app
+    export, or a 'copy for email' looks like."""
+    dest = Path(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with Image.open(src) as img:
+        img.resize(size, Image.LANCZOS).save(dest, "JPEG", quality=quality)
+    return dest

@@ -4,6 +4,32 @@ Plain-language notes on every change to the script, newest first. Each entry
 links to the pull request, which holds the exact code change and a longer
 explanation.
 
+## "Duplicate" now means identical, and the best copy is the one kept
+
+Before this change, two photos counted as duplicates when a visual
+fingerprint matched. That fingerprint is the same for a full-size photo and
+its 320-pixel thumbnail, or for a crisp original and a heavily compressed
+copy from a messaging app. The script kept whichever one it happened to
+meet first and skipped the other, so a library with thumbnails or app
+exports could end up holding the small version while the original was
+silently left out of the organized copy. Nothing in the manifest showed it.
+
+Now:
+
+- **Duplicate means byte-for-byte identical.** Those are listed in the
+  manifest and copied once, exactly as before. A new `content_hash` column
+  in the manifest shows the fingerprint used.
+- **Look-alikes are a separate, opt-in step.** `--dup-threshold` groups
+  photos that look the same. The one with the most pixels goes into the
+  main library and the rest go to `_duplicates/` for review. They are
+  never dropped, because "looks the same" is a judgement you may want to
+  check yourself. Without the flag, look-alikes are all copied as ordinary
+  photos.
+- **The result no longer depends on folder order.** The script reads every
+  photo first and decides afterwards, and it walks folders in alphabetical
+  order, so the same library organizes the same way on every run and every
+  computer.
+
 ## The preview shows real results, and re-running is now safe
 
 Three related problems, one cause: the script only wrote its manifest at
