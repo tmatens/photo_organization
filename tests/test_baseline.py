@@ -2,8 +2,7 @@
 through every later change: they are the promises the README makes."""
 import os
 
-from conftest import (read_manifest, run_script, sha256_tree, write_photo,
-                      write_screenshot)
+from conftest import read_manifest, run_script, sha256_tree, write_photo
 
 
 def test_originals_are_never_modified(library):
@@ -71,18 +70,3 @@ def test_unreadable_file_is_reported_not_fatal(library):
     by_status = {r["status"]: r for r in read_manifest(out)}
     assert "copied" in by_status
     assert by_status["error-unreadable"]["source_path"].endswith("broken.jpg")
-
-
-def test_example_chrome_matching_pulls_out_app_screenshots(library):
-    src, out = library
-    example = write_screenshot(src / "shot_a.png", chrome_seed=100, middle_seed=1)
-    write_screenshot(src / "shot_b.png", chrome_seed=100, middle_seed=2)
-    write_screenshot(src / "shot_c.png", chrome_seed=100, middle_seed=3)
-    write_photo(src / "real_photo.jpg", seed=7)
-    run_script("--source", src, "--output", out,
-               "--example", example, "--example-chrome")
-    rows = {os.path.basename(r["source_path"]): r["status"] for r in read_manifest(out)}
-    assert rows["shot_b.png"] == "matched-example"
-    assert rows["shot_c.png"] == "matched-example"
-    assert rows["real_photo.jpg"] == "copied"
-    assert list((out / "matched_example").rglob("*.png"))

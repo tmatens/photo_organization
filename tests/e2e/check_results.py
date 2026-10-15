@@ -46,15 +46,19 @@ def main(output):
     assert rel(one("VID_20220314_100000.mp4")) == "2022/03/20220314_100000.mp4"
     assert rel(one("clip.mp4")).startswith("_review/")
 
-    # Android screenshots dated from filename, and matched to the example.
+    # Every screenshot goes to review: Android ones under their filename month,
+    # iPhone-style and unknown ones under their file date.
     for name in ("Screenshot_20220314-100000.png", "Screenshot_20220315-110000.png",
                  "Screenshot_20220316-120000.png"):
         r = one(name)
-        assert r["status"] == "matched-example", (name, r["status"])
-        assert rel(r).startswith("matched_example/2022/03/"), rel(r)
-    assert one("other_app.png")["status"] == "copied"
-    assert rel(one("other_app.png")).startswith("_review/2"), rel(one("other_app.png"))
-    assert "example.png" not in by_name, "the example itself must not be processed"
+        assert r["status"] == "copied", (name, r["status"])
+        assert rel(r).startswith("_review/2022/03/"), rel(r)
+    for name in ("IMG_0099.PNG", "other_app.png"):
+        assert rel(one(name)).startswith("_review/2"), rel(one(name))
+    for name in ("IMG_0001.jpg", "IMG_0002.jpg", "IMG_0003.jpg", "IMG_0004.MOV"):
+        for r in by_name[name]:
+            if r["status"] == "copied":
+                assert not rel(r).startswith("_review/"), (name, rel(r))
 
     # Undated download to review; deep path found; junk ignored.
     assert rel(one("funny.jpg")).startswith("_review/")

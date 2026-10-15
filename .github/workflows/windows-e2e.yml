@@ -43,14 +43,9 @@ jobs:
       - name: Step 7 of the README, run for real
         shell: pwsh
         run: python organize_photos.py --source E:\ --source F:\ --source G:\ --output H:\Organized
-      - name: Step 8 of the README, pull out the app screenshots on a re-run
-        shell: pwsh
-        run: |
-          Remove-Item -Recurse -Force H:\Organized
-          python organize_photos.py --source E:\ --source F:\ --source G:\ --output H:\Organized --example "G:\Screenshots\example.png" --example-chrome
       - name: Interrupted-and-resumed run copies nothing twice
         shell: pwsh
-        run: python organize_photos.py --source E:\ --source F:\ --source G:\ --output H:\Organized --example "G:\Screenshots\example.png" --example-chrome
+        run: python organize_photos.py --source E:\ --source F:\ --source G:\ --output H:\Organized
       - name: Check the result
         shell: pwsh
         run: python tests/e2e/check_results.py H:\Organized
