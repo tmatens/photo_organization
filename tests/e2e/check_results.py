@@ -35,7 +35,7 @@ def main(output):
     # and lands in _review (no date).
     statuses = sorted(r["status"] for r in by_name["IMG_0001.jpg"])
     assert statuses == ["copied", "duplicate"], statuses
-    assert rel(one("IMG_0001_small.jpg")).startswith("_review/")
+    assert rel(one("IMG_0001_small.jpg")).startswith("_review/photos/")
 
     # Edited copy keeps its capture date, not its 2024 save date.
     assert rel(one("IMG_0003_edit.jpg")).startswith("2019/12/")
@@ -44,7 +44,7 @@ def main(output):
     assert one("IMG_0004.MOV")["date_taken"].endswith("(video-metadata)")
     assert rel(one("IMG_0004.MOV")).startswith("2021/05/")
     assert rel(one("VID_20220314_100000.mp4")) == "2022/03/20220314_100000.mp4"
-    assert rel(one("clip.mp4")).startswith("_review/")
+    assert rel(one("clip.mp4")).startswith("_review/videos/")
 
     # Every screenshot goes to review: Android ones under their filename month,
     # iPhone-style and unknown ones under their file date.
@@ -52,17 +52,18 @@ def main(output):
                  "Screenshot_20220316-120000.png"):
         r = one(name)
         assert r["status"] == "copied", (name, r["status"])
-        assert rel(r).startswith("_review/2022/03/"), rel(r)
+        assert rel(r).startswith("_review/screenshots/2022/03/"), rel(r)
     for name in ("IMG_0099.PNG", "other_app.png"):
-        assert rel(one(name)).startswith("_review/2"), rel(one(name))
+        assert rel(one(name)).startswith("_review/screenshots/2"), rel(one(name))
     for name in ("IMG_0001.jpg", "IMG_0002.jpg", "IMG_0003.jpg", "IMG_0004.MOV"):
         for r in by_name[name]:
             if r["status"] == "copied":
                 assert not rel(r).startswith("_review/"), (name, rel(r))
 
-    # Undated download to review; deep path found; junk ignored.
-    assert rel(one("funny.jpg")).startswith("_review/")
-    assert rel(one("IMG_20200101_120000.jpg")) == "2020/01/20200101_120000.jpg"
+    # Undated download to review; a dated name alone is not camera evidence,
+    # so the deep-path photo sorts the review folder; junk ignored.
+    assert rel(one("funny.jpg")).startswith("_review/photos/")
+    assert rel(one("IMG_20200101_120000.jpg")) == "_review/photos/2020/01/20200101_120000.jpg"
     assert not one("IMG_20200101_120000.jpg")["source_path"].startswith("\\\\?\\")
     assert "deleted.jpg" not in by_name, "Recycle Bin was scanned"
     assert "._IMG_0001.jpg" not in by_name, "macOS sidecar was scanned"

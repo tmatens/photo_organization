@@ -26,14 +26,17 @@ def test_numbers_that_are_not_dates_are_ignored():
         assert date_from_filename(name) is None, name
 
 
-def test_filename_date_gives_an_undated_download_a_real_month(library):
+def test_filename_date_sorts_the_review_folder_but_does_not_prove_a_camera(library):
     src, out = library
-    write_photo(src / "IMG_20220314_100000.jpg", seed=1)        # no EXIF at all
+    # A Telegram-style save: dated name, no EXIF. The date is when it was
+    # sent, not taken, so it must not enter the main library.
+    write_photo(src / "photo_2022-03-14_10-00-00.jpg", seed=1)
     run_script("--source", src, "--output", out)
     row = read_manifest(out)[0]
     assert row["date_taken"] == "2022-03-14 10:00:00 (filename)"
-    assert row["destination_path"].endswith(os.path.join("2022", "03", "20220314_100000.jpg"))
-    assert "_review" not in row["destination_path"]
+    assert row["destination_path"].endswith(
+        os.path.join("_review", "photos", "2022", "03", "20220314_100000.jpg"))
+    assert not (out / "2022").exists()
 
 
 def test_filename_date_beats_a_save_date_but_not_a_capture_date(library):
@@ -42,6 +45,9 @@ def test_filename_date_beats_a_save_date_but_not_a_capture_date(library):
     write_photo(src / "IMG_20220314_100000 copy.jpg", seed=2,
                 date_original="2019:06:01 09:30:00")
     run_script("--source", src, "--output", out)
-    rows = {os.path.basename(r["source_path"]): r["date_taken"] for r in read_manifest(out)}
-    assert rows["IMG_20220314_100000.jpg"] == "2022-03-14 10:00:00 (filename)"
-    assert rows["IMG_20220314_100000 copy.jpg"] == "2019-06-01 09:30:00 (exif-original)"
+    rows = {os.path.basename(r["source_path"]): r for r in read_manifest(out)}
+    assert rows["IMG_20220314_100000.jpg"]["date_taken"] == "2022-03-14 10:00:00 (filename)"
+    assert rows["IMG_20220314_100000 copy.jpg"]["date_taken"] == "2019-06-01 09:30:00 (exif-original)"
+    # Only the one with a capture date is in the main library.
+    assert os.sep + "_review" + os.sep in rows["IMG_20220314_100000.jpg"]["destination_path"]
+    assert os.sep + "_review" + os.sep not in rows["IMG_20220314_100000 copy.jpg"]["destination_path"]

@@ -13,19 +13,17 @@ went.
 2. **Finds duplicates** — a file that is identical to one already seen is
    listed in the manifest instead of being copied twice.
 3. **Sorts by date taken** into `YYYY/MM` folders with clean filenames like
-   `20220314_100000.jpg`, using the photo's EXIF data. If there is no EXIF
-   capture date but the filename carries a timestamp (phones and apps write
-   names like `IMG_20220314_100000.jpg` or `Screenshot_20220314-100000.png`),
-   that is used instead. Videos use the filename timestamp or the date
-   stored inside MOV/MP4 files.
-4. **Keeps non-photos out of the timeline.** Screenshots (any PNG, or a
-   file named `Screenshot...`) and anything with no date at all go into a
-   separate `_review/YYYY/MM` tree, sorted by month, for you to look
-   through. Cameras and phones never save a photo as PNG, so a PNG is a
-   screenshot, a meme or a graphic. **Photos saved from social media,
-   messaging apps or the web also end up here**, because those services
-   strip the date information on the way out: a real photo of yours that a
-   friend posted and you saved back is, to the tool, undated. The review
+   `20220314_100000.jpg`. Only a date the camera wrote counts: the EXIF
+   capture date inside a photo, or the creation time inside a MOV/MP4
+   video. See "How dates are decided" below.
+4. **Keeps everything else out of the timeline.** Screenshots (any PNG, or
+   a file named `Screenshot...`) and anything without a camera date go into
+   a separate `_review/` tree with a sub-folder per reason (`screenshots/`,
+   `photos/`, `videos/`), each sorted by month using the best date
+   available, for you to look through. **Photos saved from social media,
+   messaging apps or the web end up here**, because those services strip
+   the camera's date on the way out: a real photo of yours that a friend
+   posted and you saved back is, to the tool, not camera-dated. The review
    folder is not only junk; it needs a look.
 5. **Writes `manifest.csv`** — a spreadsheet listing every photo, where it
    went, its date, and whether it was a duplicate or a match.
@@ -81,12 +79,28 @@ This is the whole job, start to finish. Each step is one command.
    ```
    If it is interrupted, run the same command again; it continues where it
    stopped.
+
+   **Only one drive plugged in at a time?** Run it with just that drive, then
+   again later with the next one, always to the same `--output`:
+   ```
+   python organize_photos.py --source E:\ --output D:\Organized
+   python organize_photos.py --source F:\ --output D:\Organized
+   ```
+   The tool remembers what it has already copied, so a photo on F: that was
+   already copied from E: is recognised and not copied twice.
 8. **Look through `D:\Organized`:**
    - `2019\`, `2020\`, ... — photos and videos with a known date.
-   - `_review\` — everything that is not a dated camera photo: screenshots,
-     memes, downloads, and also **real photos saved from social media or
-     messaging apps**, which arrive with their dates stripped. Sorted by
-     month inside. This folder needs a look, not just a delete.
+   - `_review\` — everything that is not a camera-dated photo or video, in
+     three sub-folders so each can be gone through on its own:
+     - `_review\screenshots\` — anything that is a PNG or named
+       `Screenshot...`. Mostly junk; skim and delete by month.
+     - `_review\photos\` — photos with no camera date: memes, downloads,
+       and also **real photos saved from social media or messaging apps**,
+       which arrive with the camera's date stripped. Needs a proper look.
+     - `_review\videos\` — videos that are not camera originals: re-sent
+       copies, screen recordings, downloads. Large files; worth a separate
+       sitting.
+     All three are sorted by month inside.
    - `manifest.csv` — one line per file on the old drives saying what
      happened to it.
 9. **Only when you are happy with the new drive**, wipe the old ones. The
@@ -140,9 +154,42 @@ python3 organize_photos.py --source /Volumes/MyDrive --output ~/Organized
 |---|---|
 | `--dry-run` | Scan and report only; copy nothing |
 | `--keep-dupes` | Also copy identical duplicates into `_duplicates/` instead of only listing them |
-| `--review-folder NAME` | Folder for screenshots and undated photos (default `_review`) |
-| `--png-is-photo` | Treat PNG and `Screenshot...` files like any other photo instead of sending them to the review folder |
-| `--mix-undated` | File undated photos into the main `YYYY/MM` tree by file date instead |
+| `--review-folder NAME` | Folder for screenshots and anything without a camera date (default `_review`) |
+| `--png-is-photo` | Treat PNG and `Screenshot...` files like any other file instead of sending them straight to the review folder |
+| `--mix-undated` | File everything into the main `YYYY/MM` tree by its best-guess date; no review folder for dates |
+
+## How dates are decided
+
+Each file is checked against a short list of evidence, best first. The
+manifest's `date_taken` column says which one was used.
+
+| Source | What it is | Proves a camera? |
+|---|---|---|
+| `exif-original` | EXIF capture time, written when the shutter fired | yes |
+| `exif-digitized` | EXIF digitized time, written by scanners and import tools | yes |
+| `video-metadata` | creation time inside a MOV/MP4 file | only with a camera-style filename |
+| `filename` | a timestamp in the name, e.g. `IMG_20220314_100000.jpg` | no |
+| `exif-modified` | EXIF save time: when the file was last written, not taken | no |
+| `file-date` | the file's modification time, usually when it was copied | no |
+
+Only the first three put a file in the main `YYYY/MM` library. The others
+only decide which month a file sits under inside `_review/`. The reason: a
+timestamp in a filename, a save time, or a file date can all be written by
+software long after the picture was taken. A Telegram save named
+`photo_2022-03-14_10-00-00.jpg` is dated when it was sent, not shot.
+
+Videos are the weak case. The creation time inside a MOV/MP4 file is
+written by whatever program last encoded it, so a clip re-sent through
+WhatsApp or exported from an editor has a perfectly good header dated
+when that happened. To count as camera-dated a video needs **both** a
+header time and a camera-style filename: `VID_20220314_100000.mp4`
+(Android), `PXL_...` (Pixel), `20220314_100000.mp4` (Samsung), `IMG_1234.MOV`
+(iPhone), or the `MVI_`, `DSC_`, `DJI_` and GoPro patterns from real
+cameras. Messaging apps, screen recorders and downloads never use those
+names. When both exist, the filename supplies the date itself, because it
+is in local time and the header time is not. A camera video that was
+renamed on its way to the drive goes to `_review/videos/` under the right
+month.
 
 ## Notes
 
@@ -154,17 +201,17 @@ python3 organize_photos.py --source /Volumes/MyDrive --output ~/Organized
   nothing on the drive needs renaming first.
 - Videos are organized alongside photos. Identical videos are copied once. Hidden files (names starting with `.`) and system folders
   such as the Recycle Bin are ignored.
-- The file date used for `_review/` photos is often just the day they were
-  copied or downloaded, not the day they were taken. Treat that tree as
-  "needs a look", not as a timeline.
+- The months inside `_review/` come from whatever date was available, often
+  just the day a file was copied or downloaded. Treat that tree as "needs a
+  look", not as a timeline.
 - Large libraries take a while (roughly 1–2 hours per 50,000 photos). The
   script prints progress as it goes. If it is interrupted, run the same
   command again: it reads `manifest.csv`, skips everything already done, and
   continues. To start over from scratch, delete the output folder first.
 - "Duplicate" means byte-for-byte identical. Two photos that look the same
   but differ in size or quality (a thumbnail, a copy re-saved by a messaging
-  app) are both real files, so both are copied. The smaller copy usually has
-  no date information and so lands in `_review/`.
+  app) are both real files, so both are copied. The smaller copy has no
+  camera date and so lands in `_review/`.
 - `manifest.csv` in the output folder records every decision, so you can
   audit or undo anything. It is written one line at a time as the script
   works, so even an interrupted run leaves a complete record of what it did.

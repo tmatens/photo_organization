@@ -45,7 +45,7 @@ def test_video_with_no_date_goes_to_review(library):
     r = rows(out)
     for name in ("clip.mp4", "old.avi"):
         assert r[name]["date_taken"].endswith("(file-date)")
-        assert os.sep + "_review" + os.sep in r[name]["destination_path"]
+        assert os.path.join("_review", "videos") + os.sep in r[name]["destination_path"]
 
 
 def test_identical_videos_are_copied_once(library):
