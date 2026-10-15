@@ -1,0 +1,60 @@
+name: Windows end-to-end
+
+# Runs the exact commands from the README's Windows walkthrough on a real
+# Windows machine, with three folders mapped to drive letters E:, F:, G: by
+# `subst` and the output on H:, so drive-root paths like E:\ are exercised
+# for real rather than assumed.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Three drives to one, on Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - run: pip install -r requirements-dev.txt
+      - name: Map three old drives and a new SSD to drive letters
+        shell: pwsh
+        run: |
+          foreach ($d in "drive1","drive2","drive3","ssd") { New-Item -ItemType Directory -Force "C:\e2e\$d" | Out-Null }
+          subst E: C:\e2e\drive1
+          subst F: C:\e2e\drive2
+          subst G: C:\e2e\drive3
+          subst H: C:\e2e\ssd
+          subst
+      - name: Fill the old drives with a realistic mess
+        shell: pwsh
+        run: python tests/e2e/build_library.py E:\ F:\ G:\
+      - name: Step 6 of the README, preview
+        shell: pwsh
+        run: python organize_photos.py --source E:\ --source F:\ --source G:\ --output H:\Organized --dry-run
+      - name: Step 7 of the README, run for real
+        shell: pwsh
+        run: python organize_photos.py --source E:\ --source F:\ --source G:\ --output H:\Organized
+      - name: Step 8 of the README, pull out the app screenshots on a re-run
+        shell: pwsh
+        run: |
+          Remove-Item -Recurse -Force H:\Organized
+          python organize_photos.py --source E:\ --source F:\ --source G:\ --output H:\Organized --example "G:\Screenshots\example.png" --example-chrome
+      - name: Interrupted-and-resumed run copies nothing twice
+        shell: pwsh
+        run: python organize_photos.py --source E:\ --source F:\ --source G:\ --output H:\Organized --example "G:\Screenshots\example.png" --example-chrome
+      - name: Check the result
+        shell: pwsh
+        run: python tests/e2e/check_results.py H:\Organized
+      - name: Show the manifest
+        if: always()
+        shell: pwsh
+        run: if (Test-Path H:\Organized\manifest.csv) { Get-Content H:\Organized\manifest.csv }
