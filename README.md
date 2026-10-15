@@ -40,13 +40,17 @@ iPhone HEIC photos only: also run `pip install -r requirements-optional.txt`.
 
 ## How to run
 
-**1. Preview first (dry run — changes nothing):**
+**1. Preview first (dry run — copies nothing):**
 ```
 # Mac
 python3 organize_photos.py --source /Volumes/MyDrive --output ~/Organized --dry-run
 # Windows
 python organize_photos.py --source E:\ --output C:\Organized --dry-run
 ```
+
+The preview writes `manifest_dryrun.csv` in the output folder: one line per
+photo showing exactly where the real run would put it. Open it in a
+spreadsheet and check a few rows before continuing.
 
 **2. Full run:**
 ```
@@ -81,9 +85,15 @@ stricter, higher = looser).
 - The `--output` folder must not be inside `--source`. A different folder on
   the same external drive works fine if there's free space.
 - Large libraries take a while (roughly 1–2 hours per 50,000 photos). The
-  script prints progress as it goes and can be safely re-run.
+  script prints progress as it goes. If it is interrupted, run the same
+  command again: it reads `manifest.csv`, skips everything already done, and
+  continues. To start over from scratch, delete the output folder first.
 - `manifest.csv` in the output folder records every decision, so you can
-  audit or undo anything.
+  audit or undo anything. It is written one line at a time as the script
+  works, so even an interrupted run leaves a complete record of what it did.
+- If a photo cannot be copied (disk full, permission problem), the script
+  records it as `error-copy` in the manifest, carries on with the rest, and
+  reports the count at the end.
 
 ## For developers
 

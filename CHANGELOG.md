@@ -4,6 +4,29 @@ Plain-language notes on every change to the script, newest first. Each entry
 links to the pull request, which holds the exact code change and a longer
 explanation.
 
+## The preview shows real results, and re-running is now safe
+
+Three related problems, one cause: the script only wrote its manifest at
+the very end, and never read it back.
+
+- **A dry run showed nothing.** It printed four counts and no manifest, so
+  there was nothing to preview. It now writes `manifest_dryrun.csv` with the
+  exact destination of every photo, including the `_2`, `_3` numbering that
+  photos taken in the same second get.
+- **Re-running doubled the library.** The script did not know what it had
+  already copied, so a second run copied every photo again with `_2` on the
+  name. It now reads `manifest.csv` at startup, skips everything listed, and
+  still recognises a duplicate of a photo copied in an earlier run.
+- **An interrupted run lost its record.** A crash, a full disk, or closing
+  the terminal two hours in threw away the entire manifest. Each line is now
+  written the moment it is decided.
+
+Alongside that: a photo that fails to copy is recorded as `error-copy` and
+the run continues instead of stopping dead; copies go through a temporary
+name so an interruption never leaves a half-written photo under a real
+name; and each image is now opened once instead of three times, which
+makes the run noticeably faster, especially on iPhone HEIC files.
+
 ## Photos are now filed by the date they were taken
 
 Before this change, the script was filing every photo by the date the file
