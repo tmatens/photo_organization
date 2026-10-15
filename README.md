@@ -14,10 +14,12 @@ builds an organized *copy* and tells you exactly where everything went.
    a burst frame), keeps the largest version, and puts the rest in a review
    folder.
 3. **Sorts by date taken** into `YYYY/MM` folders with clean filenames like
-   `20220314_100000.jpg`, using the photo's EXIF data. Photos with no EXIF
-   date at all (screenshots, images received through messaging apps,
-   downloads) go into a separate `_review/YYYY/MM` tree sorted by file
-   date, so a guessed date never mixes with a real one.
+   `20220314_100000.jpg`, using the photo's EXIF data. If there is no EXIF
+   capture date but the filename carries a timestamp (phones and apps write
+   names like `IMG_20220314_100000.jpg` or `Screenshot_20220314-100000.png`),
+   that is used instead. Anything with no date at all goes into a separate
+   `_review/YYYY/MM` tree sorted by file date, so a guessed date never
+   mixes with a real one.
 4. **Pulls out lookalikes** — give it an example image (e.g. one of your
    music-app screenshots) and it copies every visually similar photo into its
    own folder.
