@@ -28,7 +28,7 @@ jobs:
       - name: Map three old drives and a new SSD to drive letters
         shell: pwsh
         run: |
-          foreach ($d in "drive1","drive2","drive3","ssd") { New-Item -ItemType Directory -Force "C:\e2e\$d" | Out-Null }
+          foreach ($d in "drive1","drive2","drive3","ssd","examples") { New-Item -ItemType Directory -Force "C:\e2e\$d" | Out-Null }
           subst E: C:\e2e\drive1
           subst F: C:\e2e\drive2
           subst G: C:\e2e\drive3
@@ -36,7 +36,7 @@ jobs:
           subst
       - name: Fill the old drives with a realistic mess
         shell: pwsh
-        run: python tests/e2e/build_library.py E:\ F:\ G:\
+        run: python tests/e2e/build_library.py E:\ F:\ G:\ C:\e2e\examples
       - name: Step 6 of the README, quick sample
         shell: pwsh
         run: python organize_photos.py --source E:\ --source F:\ --source G:\ --output H:\Organized --dry-run --sample 5
@@ -52,6 +52,14 @@ jobs:
       - name: Check the result
         shell: pwsh
         run: python tests/e2e/check_results.py H:\Organized
+      - name: Step 10 of the README, pull the music app's screenshots out
+        shell: pwsh
+        run: |
+          python sort_screenshots.py --output H:\Organized --examples C:\e2e\examples --name music --dry-run
+          python sort_screenshots.py --output H:\Organized --examples C:\e2e\examples --name music
+      - name: Check the result after sorting
+        shell: pwsh
+        run: python tests/e2e/check_results.py H:\Organized --sorted
       - name: Show the manifest
         if: always()
         shell: pwsh

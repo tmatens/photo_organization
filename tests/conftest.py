@@ -54,7 +54,9 @@ def write_screenshot(path, chrome_seed, middle_seed, size=(400, 800)):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     w, h = size
-    img = make_image(chrome_seed, size)
+    # Draw the app's frame once at a fixed size and scale it, the way a real
+    # app's interface scales with the screen; the artwork differs per file.
+    img = make_image(chrome_seed, (360, 780)).resize(size, Image.BILINEAR)
     middle = make_image(middle_seed, (w, int(h * 0.40)))
     img.paste(middle, (0, int(h * 0.16)))
     img.save(path, "PNG")

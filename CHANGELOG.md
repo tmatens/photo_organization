@@ -4,6 +4,25 @@ Plain-language notes on every change to the script, newest first. Each entry
 links to the pull request, which holds the exact code change and a longer
 explanation.
 
+## A second script pulls one app's screenshots into their own folder
+
+`sort_screenshots.py` runs after the organizer and looks only inside
+`_review/screenshots/`. Given a folder with one or more example
+screenshots of an app, it moves every screenshot that shares the app's
+frame, the header at the top and the controls at the bottom, into
+`_review/<name>/`, by month. The picture in the middle, which changes
+with every song, is ignored, and the phone's screen size does not
+matter. The manifest is updated to the new locations and a log says what
+matched what. It is safe to run again after adding another example; only
+what is still in the screenshots folder is checked.
+
+This brings back, in a simpler form, what the original script's example
+matching was for: fifteen years of screenshots of songs to listen to
+later, from several phones, in one place. It needs no extra library
+(Pillow only), no threshold tuning for the common case, and it can be
+run as many times as needed rather than deciding everything in one pass.
+The matching rule was calibrated on a real screenshot of the app.
+
 ## A quick sample before the long wait
 
 `--sample 500` processes 500 files spread evenly from the first file on
