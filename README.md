@@ -21,7 +21,7 @@ builds an organized *copy* and tells you exactly where everything went.
 
 ## Setup
 
-You need Python 3.9 or newer.
+You need Python 3.10 or newer.
 
 **Mac:** Python usually comes preinstalled. Open Terminal and check:
 ```
@@ -31,11 +31,12 @@ python3 --version
 **Windows:** Install Python from python.org (tick "Add python.exe to PATH"
 during setup). Then open PowerShell.
 
-Install the two required packages (same command on Mac and Windows):
+Install the required packages (same command on Mac and Windows, run from the
+folder containing the script):
 ```
-pip install pillow imagehash
+pip install -r requirements.txt
 ```
-iPhone HEIC photos only: also run `pip install pillow-heif`.
+iPhone HEIC photos only: also run `pip install -r requirements-optional.txt`.
 
 ## How to run
 
@@ -83,3 +84,12 @@ stricter, higher = looser).
   script prints progress as it goes and can be safely re-run.
 - `manifest.csv` in the output folder records every decision, so you can
   audit or undo anything.
+
+## For developers
+
+A plain-language log of every change is in `CHANGELOG.md`. To run the tests:
+```
+pip install -r requirements-dev.txt
+pytest
+```
+The tests build small synthetic photo libraries, so they need no real photos.

@@ -1,0 +1,3 @@
+# Optional: lets the script open iPhone HEIC/HEIF photos.
+# Install with:  pip install -r requirements-optional.txt
+pillow-heif==1.8.1

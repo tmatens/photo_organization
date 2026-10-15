@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+venv/
+.venv/
+# Script output never belongs in the repo.
+manifest.csv
+Organized/
