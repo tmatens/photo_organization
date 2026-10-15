@@ -13,9 +13,11 @@ What it does:
      --dup-threshold, photos that merely LOOK the same (a thumbnail, a
      re-saved copy, a burst frame) are grouped too: the largest version is
      kept in the main tree and the rest go to _duplicates/ for review.
-  3. Sorts everything by the date the photo was taken (EXIF data; falls back
-     to the file's modification date for screenshots, which usually have no
-     EXIF data) into YYYY/MM folders with clean filenames.
+  3. Sorts everything by the date the photo was taken (EXIF data) into
+     YYYY/MM folders with clean filenames. Photos with no EXIF date at all
+     (screenshots, images received through messaging apps, downloads) go
+     into their own _review/YYYY/MM tree, dated by the file's modification
+     time, so guessed dates never mix with real ones.
   4. Optionally pulls out every photo that looks like an example image you
      provide (--example), e.g. all your music-app screenshots, into its own
      folder.
@@ -61,8 +63,16 @@ except ImportError:
     HEIC_OK = False
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"}
+HEIC_EXTS = {".heic", ".heif"}
 if HEIC_OK:
-    IMAGE_EXTS |= {".heic", ".heif"}
+    IMAGE_EXTS |= HEIC_EXTS
+VIDEO_EXTS = {".mov", ".mp4", ".m4v", ".avi", ".3gp", ".mkv", ".wmv", ".mts"}
+
+# Folders that never hold a person's photos: OS trash and index folders,
+# Synology thumbnail caches, and the junk a Mac zip adds.
+SKIP_DIRS = {"@eaDir", ".Trashes", ".Spotlight-V100", ".fseventsd",
+             ".TemporaryItems", "$RECYCLE.BIN", "System Volume Information",
+             "__MACOSX"}
 
 # EXIF date tags, in order of preference. The first two live in the Exif
 # sub-IFD, which Pillow's getexif() does NOT include: it has to be opened with
@@ -100,6 +110,12 @@ def parse_args():
                         "edits. The largest version of each group is kept; "
                         "the others are copied to _duplicates/. Off by "
                         "default: only byte-identical files are duplicates.")
+    p.add_argument("--undated-folder", default="_review", metavar="NAME",
+                   help="Folder for photos that have no EXIF date (default "
+                        "_review). They are sorted by file date inside it.")
+    p.add_argument("--mix-undated", action="store_true",
+                   help="File undated photos into the main YYYY/MM tree by "
+                        "file date instead of keeping them separate.")
     p.add_argument("--keep-dupes", action="store_true",
                    help="Also copy byte-identical duplicates into _duplicates/ "
                         "instead of just listing them.")
@@ -108,14 +124,33 @@ def parse_args():
     return p.parse_args()
 
 
-def iter_images(root):
-    """Yield absolute paths of image files under root."""
+def iter_images(root, skipped, exclude=None):
+    """Yield image paths under root, in a stable order.
+
+    Skips hidden files and system folders, and the `exclude` folder (the
+    output, when it lives inside the source). Counts what it leaves behind
+    in `skipped` so the summary can say so.
+    """
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames.sort()      # same order on every run and every filesystem
+        dirnames[:] = sorted(
+            d for d in dirnames
+            if d not in SKIP_DIRS and not d.startswith(".")
+            and os.path.join(dirpath, d) != exclude)
         for name in sorted(filenames):
+            if name.startswith("."):
+                # ._photo.jpg sidecars that macOS leaves on external drives,
+                # .DS_Store, and other hidden files.
+                skipped["hidden"] += 1
+                continue
             ext = os.path.splitext(name)[1].lower()
             if ext in IMAGE_EXTS:
                 yield os.path.join(dirpath, name)
+            elif ext in HEIC_EXTS:
+                skipped["heic"] += 1     # only reached when pillow-heif is absent
+            elif ext in VIDEO_EXTS:
+                skipped["video"] += 1
+            else:
+                skipped["other"] += 1
 
 
 def parse_exif_datetime(val):
@@ -347,8 +382,10 @@ def main():
     output = os.path.abspath(args.output)
     if not os.path.isdir(source):
         sys.exit("Source folder not found: %s" % source)
-    if output == source or output.startswith(source + os.sep):
-        sys.exit("Output must not be inside the source folder.")
+    if output == source:
+        sys.exit("Output must be a different folder from the source.")
+    if source.startswith(output + os.sep):
+        sys.exit("Output must not contain the source folder.")
     if args.dup_threshold is not None and not 0 <= args.dup_threshold <= 64:
         sys.exit("--dup-threshold must be between 0 and 64.")
 
@@ -375,7 +412,8 @@ def main():
     done = {} if args.dry_run else load_manifest(manifest)
 
     print("Scanning %s ..." % source)
-    paths = [p for p in iter_images(source)
+    skipped = defaultdict(int)
+    paths = [p for p in iter_images(source, skipped, exclude=output)
              if os.path.abspath(p) != example_abs]
     print("Found %d image files." % len(paths))
     todo = [p for p in paths if p not in done]
@@ -463,23 +501,33 @@ def main():
                        and hamming(sim_hash, ex_hash) <= args.similar_threshold)
 
             stem = dt.strftime("%Y%m%d_%H%M%S")
+            undated = dsrc == "file-date" and not args.mix_undated
             if similar:
                 folder = os.path.join(output, args.similar_name,
                                       dt.strftime("%Y"), dt.strftime("%m"))
                 e["status"] = "matched-example"
+            elif undated:
+                # No real date: keep these out of the main timeline so a
+                # download date never masquerades as the day a photo was taken.
+                folder = os.path.join(output, args.undated_folder,
+                                      dt.strftime("%Y"), dt.strftime("%m"))
+                e["status"] = "copied"
             else:
                 folder = os.path.join(output, dt.strftime("%Y"), dt.strftime("%m"))
                 e["status"] = "copied"
             e["dest"] = unique_dest(folder, stem, e["ext"], taken)
             date_str = dt.strftime("%Y-%m-%d %H:%M:%S") + " (%s)" % dsrc
             if copy(e):
-                stats["matched" if similar else "copied"] += 1
+                stats["matched" if similar else ("undated" if undated else "copied")] += 1
             record(e, date_str)
 
     print("\nDone%s." % (" (dry run: nothing copied)" if args.dry_run else ""))
     if done:
         print("  done in a previous run: %d" % (len(paths) - len(todo)))
     print("  copied:            %d" % stats["copied"])
+    if not args.mix_undated:
+        print("  copied, no EXIF date: %d (in %s/, sorted by file date)"
+              % (stats["undated"], args.undated_folder))
     print("  matched example:   %d" % stats["matched"])
     print("  duplicates skipped:%d" % stats["duplicate"])
     if args.dup_threshold is not None:
@@ -488,6 +536,16 @@ def main():
     if stats["copy_errors"]:
         print("  COPY FAILURES:     %d (see error-copy rows in the manifest)"
               % stats["copy_errors"])
+    if skipped["heic"]:
+        print("  NOT INCLUDED: %d HEIC/HEIF photos. Install the optional "
+              "package (pip install -r requirements-optional.txt) and run "
+              "again to add them." % skipped["heic"])
+    if skipped["video"]:
+        print("  NOT INCLUDED: %d video files. This tool organizes photos "
+              "only; videos stay where they are." % skipped["video"])
+    if skipped["hidden"]:
+        print("  ignored %d hidden/system files (names starting with '.')"
+              % skipped["hidden"])
     if args.dry_run:
         print("Preview of where everything would go: %s" % manifest)
     else:

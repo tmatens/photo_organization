@@ -29,7 +29,7 @@ def test_save_date_is_used_only_when_nothing_better_exists(library):
     assert read_manifest(out)[0]["date_taken"].endswith("(exif-modified)")
 
 
-def test_no_exif_at_all_falls_back_to_file_date(library):
+def test_review_at_all_falls_back_to_file_date(library):
     src, out = library
     write_photo(src / "screenshot_like.jpg", seed=3)
     run_script("--source", src, "--output", out)
