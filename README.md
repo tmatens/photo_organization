@@ -172,6 +172,34 @@ python3 organize_photos.py --source /Volumes/MyDrive --output ~/Organized
   records it as `error-copy` in the manifest, carries on with the rest, and
   reports the count at the end.
 
+## Why there is no example matching or look-alike grouping
+
+Earlier versions could pull out every photo that looked like one example
+image, and could group photos that merely looked the same. Both were
+removed in 1.2.0. Overall better, with known risks.
+
+Why better:
+
+- Every screenshot already goes to `_review/`, so example matching had
+  nothing left to find.
+- Thumbnails and app re-saves carry no date, so they already land in
+  `_review/` too; look-alike grouping would only have sorted the review pile.
+- Both relied on a similarity threshold that could sweep a real photo into
+  the wrong folder with nothing in the manifest to show it.
+- Three packages gone; the install is Pillow alone.
+- Fewer options: the walkthrough uses three.
+
+Risks:
+
+- Two files with identical pixels but different metadata (an export from a
+  photo app, a copy with location stripped) are both kept, side by side in
+  a month folder.
+- Burst frames and near-identical shots are all kept.
+- Real photos saved back from social media or messaging apps have no date
+  and land in `_review/` with the screenshots and memes. That folder needs a
+  look, not a delete.
+- Nothing separates one app's screenshots from another's inside `_review/`.
+
 ## For developers
 
 A plain-language log of every change is in `CHANGELOG.md`. To run the tests:
