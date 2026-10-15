@@ -1,6 +1,7 @@
 """Check the organized copy produced from build_library.py's three drives.
 
-Usage: python tests/e2e/check_results.py OUTPUT_FOLDER
+Usage: python tests/e2e/check_results.py OUTPUT_FOLDER [--sorted]
+--sorted: the music-app screenshots have been moved by sort_screenshots.py
 Exits non-zero with a message on the first expectation that fails.
 """
 import csv
@@ -9,7 +10,7 @@ import sys
 from pathlib import Path
 
 
-def main(output):
+def main(output, sorted_flag=False):
     out = Path(output)
     with open(out / "manifest.csv", newline="", encoding="utf-8") as f:
         rows = list(csv.DictReader(f))
@@ -48,13 +49,14 @@ def main(output):
 
     # Every screenshot goes to review: Android ones under their filename month,
     # iPhone-style and unknown ones under their file date.
+    music = "_review/music/" if sorted_flag else "_review/screenshots/"
     for name in ("Screenshot_20220314-100000.png", "Screenshot_20220315-110000.png",
-                 "Screenshot_20220316-120000.png"):
+                 "Screenshot_20220316-120000.png", "IMG_0099.PNG"):
         r = one(name)
         assert r["status"] == "copied", (name, r["status"])
-        assert rel(r).startswith("_review/screenshots/2022/03/"), rel(r)
-    for name in ("IMG_0099.PNG", "other_app.png"):
-        assert rel(one(name)).startswith("_review/screenshots/2"), rel(one(name))
+        assert rel(r).startswith(music), (name, rel(r))
+        assert Path(r["destination_path"]).is_file(), name
+    assert rel(one("other_app.png")).startswith("_review/screenshots/2"), rel(one("other_app.png"))
     for name in ("IMG_0001.jpg", "IMG_0002.jpg", "IMG_0003.jpg", "IMG_0004.MOV"):
         for r in by_name[name]:
             if r["status"] == "copied":
@@ -79,4 +81,4 @@ def main(output):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(sys.argv[1], "--sorted" in sys.argv[2:])

@@ -8,7 +8,7 @@ import sys
 import zipfile
 from pathlib import Path
 
-FILES = ["organize_photos.py", "README.md", "CHANGELOG.md",
+FILES = ["organize_photos.py", "sort_screenshots.py", "README.md", "CHANGELOG.md",
          "requirements.txt", "requirements-optional.txt"]
 
 

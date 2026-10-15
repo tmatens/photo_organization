@@ -112,7 +112,22 @@ This is the whole job, start to finish. Each step is one command.
      All three are sorted by month inside.
    - `manifest.csv` — one line per file on the old drives saying what
      happened to it.
-10. **Only when you are happy with the new drive**, wipe the old ones. The
+10. **Pull one app's screenshots into their own folder** (optional). If
+    years of screenshots of one app are mixed into `_review\screenshots\`,
+    for example songs you captured to remember later:
+    1. Make a folder `C:\photo_organizer\examples` and copy one of those
+       screenshots into it. One is usually enough; if the app's look has
+       changed over the years, add one of each look.
+    2. Preview, then run:
+       ```
+       python sort_screenshots.py --output D:\Organized --examples C:\photo_organizer\examples --name music --dry-run
+       python sort_screenshots.py --output D:\Organized --examples C:\photo_organizer\examples --name music
+       ```
+    3. The matches move to `D:\Organized\_review\music\`, by month. Look at
+       what is left in `_review\screenshots\`; if any of the app's
+       screenshots were missed, copy one into the examples folder and run
+       again. Only the leftovers are checked each time.
+11. **Only when you are happy with the new drive**, wipe the old ones. The
     tool never deletes anything; that last step is yours.
 
 
@@ -156,6 +171,30 @@ python organize_photos.py --source E:\ --source F:\ --source G:\ --output D:\Org
 # Mac
 python3 organize_photos.py --source /Volumes/MyDrive --output ~/Organized
 ```
+
+## Pulling one app's screenshots out: `sort_screenshots.py`
+
+Runs after the organizer and looks only inside `_review/screenshots/`. It
+compares each screenshot's top band (status bar and header) and bottom
+band (title, controls, progress bar) with the same bands of your example
+screenshots, shrunk to a small grid so the phone's screen size does not
+matter. The middle of the screen, where artwork changes with every song,
+is ignored. Matches move to `_review/<name>/YYYY/MM/`, `manifest.csv` is
+updated to the new locations, and a log in `_review/` says which example
+each file matched and how closely.
+
+| Option | What it does |
+|---|---|
+| `--output FOLDER` | The organized folder (the `--output` you gave the organizer) |
+| `--examples FOLDER` | Folder of example screenshots, one per look |
+| `--name NAME` | Folder under `_review` for the matches (default `app`) |
+| `--threshold N` | How different the bands may be and still match, 0 to 255 (default 12). Raise if screenshots are missed, lower if other apps are caught |
+| `--dry-run` | Report and log what would move; move nothing |
+
+Measured on a real music-app screenshot: the same app on four different
+phone sizes and with different songs scores under 2; other apps score
+above 38; a blank screen in the app's colour scores 20. The default of 12
+sits in the gap.
 
 ## Useful options
 

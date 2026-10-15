@@ -1,6 +1,6 @@
 """Build a realistic three-drive mess for the end-to-end check.
 
-Usage: python tests/e2e/build_library.py DRIVE1 DRIVE2 DRIVE3
+Usage: python tests/e2e/build_library.py DRIVE1 DRIVE2 DRIVE3 [EXAMPLES]
 
 Each drive gets the kinds of things old backup drives accumulate: camera
 photos with real dates, the same photo on two drives, a thumbnail of one,
@@ -20,8 +20,12 @@ from conftest import write_mp4, write_photo, write_resized, write_screenshot  # 
 from organize_photos import longpath  # noqa: E402
 
 
-def main(d1, d2, d3):
+def main(d1, d2, d3, examples=None):
     d1, d2, d3 = Path(d1), Path(d2), Path(d3)
+    if examples:
+        # One example of the music app's look, as the owner would supply it.
+        write_screenshot(Path(examples) / "music_app.png", chrome_seed=100, middle_seed=77,
+                         size=(1170, 2532))
 
     # Drive 1: the phone backup.
     cam = write_photo(d1 / "DCIM" / "IMG_0001.jpg", seed=1, size=(1600, 1200),
@@ -61,4 +65,4 @@ def main(d1, d2, d3):
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:4])
+    main(*sys.argv[1:5])
