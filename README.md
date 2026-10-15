@@ -36,8 +36,21 @@ This is the whole job, start to finish. Each step is one command.
 
 1. **Install Python** from https://www.python.org/downloads/ . On the first
    screen of the installer tick **"Add python.exe to PATH"**, then Install.
-2. **Download this tool** from the Releases page on GitHub (the `.zip`), and
-   unzip it somewhere simple, such as `C:\photo_organizer`.
+2. **Download this tool.**
+   1. In a browser, open
+      https://github.com/tmatens/photo_organization/releases/latest
+   2. Scroll down to the **Assets** heading and click the file named
+      `photo_organizer-<version>.zip` (for example `photo_organizer-1.2.1.zip`).
+      Ignore the two "Source code" links; those are for programmers.
+   3. The browser saves it to your **Downloads** folder. Open Downloads in
+      File Explorer, right-click the zip file, and choose **Extract All...**
+   4. In the dialog that opens, delete the suggested location and type
+      `C:\photo_organizer` instead, then click **Extract**.
+   5. Check: `C:\photo_organizer` should now contain `organize_photos.py`,
+      `README.md`, `requirements.txt` and `requirements-optional.txt`
+      directly, not inside another folder. If you see a folder instead,
+      open it and use *that* folder's path wherever the steps below say
+      `C:\photo_organizer`.
 3. **Plug in the drives.** All three old drives and the new SSD. Note the
    drive letters Windows gives them (open File Explorer and look under
    "This PC"). The examples below use `E:`, `F:`, `G:` for the old drives and
