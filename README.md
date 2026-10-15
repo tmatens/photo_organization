@@ -7,7 +7,7 @@ went.
 
 ## What it does
 
-1. **Scans** every subfolder of your external drive for photos
+1. **Scans** every subfolder of your external drives for photos
    (JPG, PNG, HEIC, WEBP, TIFF, BMP) and videos (MOV, MP4, M4V, 3GP, AVI,
    MKV, WMV, MTS).
 2. **Finds duplicates** — a file that is identical to one already seen is
@@ -25,8 +25,11 @@ went.
    the camera's date on the way out: a real photo of yours that a friend
    posted and you saved back is, to the tool, not camera-dated. The review
    folder is not only junk; it needs a look.
-5. **Writes `manifest.csv`** — a spreadsheet listing every photo, where it
-   went, its date, and whether it was a duplicate or a match.
+5. **Writes `manifest.csv`** — a spreadsheet listing every photo and video,
+   where it went, which date was used, and whether it was a duplicate.
+6. **Optionally pulls one app's screenshots out** of the review folder into
+   their own folder, given an example screenshot. A separate script; see
+   step 10 of the walkthrough.
 
 ## Quick start on Windows: three old drives onto one new SSD
 
@@ -38,15 +41,16 @@ This is the whole job, start to finish. Each step is one command.
    1. In a browser, open
       https://github.com/tmatens/photo_organization/releases/latest
    2. Scroll down to the **Assets** heading and click the file named
-      `photo_organizer-<version>.zip` (for example `photo_organizer-1.2.1.zip`).
+      `photo_organizer-<version>.zip` (the version number changes; take
+      whichever is there).
       Ignore the two "Source code" links; those are for programmers.
    3. The browser saves it to your **Downloads** folder. Open Downloads in
       File Explorer, right-click the zip file, and choose **Extract All...**
    4. In the dialog that opens, delete the suggested location and type
       `C:\photo_organizer` instead, then click **Extract**.
    5. Check: `C:\photo_organizer` should now contain `organize_photos.py`,
-      `README.md`, `requirements.txt` and `requirements-optional.txt`
-      directly, not inside another folder. If you see a folder instead,
+      `sort_screenshots.py`, `README.md`, `CHANGELOG.md`, `requirements.txt`
+      and `requirements-optional.txt` directly, not inside another folder. If you see a folder instead,
       open it and use *that* folder's path wherever the steps below say
       `C:\photo_organizer`.
 3. **Plug in the drives.** All three old drives and the new SSD. Note the
@@ -72,8 +76,7 @@ This is the whole job, start to finish. Each step is one command.
    Open `D:\Organized\manifest_dryrun.csv` in Excel. If the pattern looks
    right (camera photos under years and months, screenshots and odds and
    ends under `_review`), continue. If not, this is the moment to ask.
-7. **Full preview.** Same, for every file. This takes a while on big
-   drives:
+7. **Full preview.** Same, for every file:
    ```
    python organize_photos.py --source E:\ --source F:\ --source G:\ --output D:\Organized --dry-run
    ```
@@ -130,6 +133,7 @@ This is the whole job, start to finish. Each step is one command.
 11. **Only when you are happy with the new drive**, wipe the old ones. The
     tool never deletes anything; that last step is yours.
 
+## Setup on a Mac, or by hand
 
 You need Python 3.10 or newer.
 
@@ -248,13 +252,13 @@ month.
   with spaces needs quotes and no trailing backslash: `"D:\My Photos"`.
   Folder trees deeper than Windows' usual 260-character limit are handled;
   nothing on the drive needs renaming first.
-- Videos are organized alongside photos. Identical videos are copied once. Hidden files (names starting with `.`) and system folders
-  such as the Recycle Bin are ignored.
+- Videos are organized alongside photos. Identical videos are copied once.
+- Hidden files (names starting with `.`) and system folders such as the
+  Recycle Bin are ignored.
 - The months inside `_review/` come from whatever date was available, often
   just the day a file was copied or downloaded. Treat that tree as "needs a
   look", not as a timeline.
-- Large libraries take a while (roughly 1–2 hours per 50,000 photos). The
-  script prints progress as it goes. If it is interrupted, run the same
+- Large libraries take hours. The script prints progress as it goes. If it is interrupted, run the same
   command again: it reads `manifest.csv`, skips everything already done, and
   continues. To start over from scratch, delete the output folder first.
 - "Duplicate" means byte-for-byte identical. Two photos that look the same
@@ -268,22 +272,25 @@ month.
   records it as `error-copy` in the manifest, carries on with the rest, and
   reports the count at the end.
 
-## Why there is no example matching or look-alike grouping
+## Why the organizer itself does no image matching
 
-Earlier versions could pull out every photo that looked like one example
-image, and could group photos that merely looked the same. Both were
-removed in 1.2.0. Overall better, with known risks.
+Earlier versions of the organizer could pull out every photo that looked
+like one example image, and could group photos that merely looked the
+same, all during the copy. Both were removed in 1.2.0. Matching one app's
+screenshots came back in 1.5.0 as a separate script that runs afterwards
+over the review folder. Overall better, with known risks.
 
 Why better:
 
-- Every screenshot already goes to `_review/`, so example matching had
-  nothing left to find.
-- Thumbnails and app re-saves carry no date, so they already land in
+- Every screenshot already goes to `_review/screenshots/`, so the organizer
+  has nothing to match during the copy; the sorter works on that folder.
+- Thumbnails and app re-saves carry no camera date, so they already land in
   `_review/` too; look-alike grouping would only have sorted the review pile.
-- Both relied on a similarity threshold that could sweep a real photo into
-  the wrong folder with nothing in the manifest to show it.
+- A similarity decision made during the copy could not be checked or
+  undone; the sorter previews, logs which example matched, and can be run
+  again after adding an example.
 - Three packages gone; the install is Pillow alone.
-- Fewer options: the walkthrough uses three.
+- Fewer options: the walkthrough uses three for the organizer.
 
 Risks:
 
@@ -291,10 +298,12 @@ Risks:
   photo app, a copy with location stripped) are both kept, side by side in
   a month folder.
 - Burst frames and near-identical shots are all kept.
-- Real photos saved back from social media or messaging apps have no date
-  and land in `_review/` with the screenshots and memes. That folder needs a
+- Real photos saved back from social media or messaging apps have no camera
+  date and land in `_review/photos/` with the memes. That folder needs a
   look, not a delete.
-- Nothing separates one app's screenshots from another's inside `_review/`.
+- The sorter matches an app's frame, not its name. A different app with a
+  very similar layout would be pulled too; the dry-run log shows it before
+  anything moves.
 
 ## For developers
 
