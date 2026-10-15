@@ -131,6 +131,11 @@ def parse_args():
                         "instead of just listing them.")
     p.add_argument("--dry-run", action="store_true",
                    help="Scan and report only; copy nothing.")
+    p.add_argument("--sample", type=int, default=None, metavar="N",
+                   help="Process only N files, spread evenly across every "
+                        "drive and folder, to see results in minutes instead "
+                        "of hours. Usually combined with --dry-run. A later "
+                        "full run skips whatever a sample already copied.")
     return p.parse_args()
 
 
@@ -507,6 +512,14 @@ def main():
         paths.extend(iter_images(source, skipped, exclude=output))
     print("Found %d photo and video files." % len(paths))
     todo = [p for p in paths if p not in done]
+    if args.sample is not None and args.sample < 1:
+        sys.exit("--sample must be at least 1.")
+    if args.sample is not None and args.sample < len(todo):
+        # Every k-th file from first to last, so the sample reaches into
+        # every drive and folder instead of the first few of the first drive.
+        step = len(todo) / args.sample
+        todo = [todo[int(i * step)] for i in range(args.sample)]
+        print("Sampling %d of them, spread evenly." % len(todo))
     if done:
         print("Resuming: %d already in manifest, %d still to do."
               % (len(paths) - len(todo), len(todo)))
@@ -605,7 +618,9 @@ def main():
                     stats["videos"] += 1
             record(e, date_str)
 
-    print("\nDone%s." % (" (dry run: nothing copied)" if args.dry_run else ""))
+    print("\nDone%s%s." % (
+        " (dry run: nothing copied)" if args.dry_run else "",
+        " (sample of %d)" % len(entries) if args.sample is not None else ""))
     if done:
         print("  done in a previous run: %d" % (len(paths) - len(todo)))
     print("  copied:            %d" % stats["copied"])

@@ -37,10 +37,13 @@ jobs:
       - name: Fill the old drives with a realistic mess
         shell: pwsh
         run: python tests/e2e/build_library.py E:\ F:\ G:\
-      - name: Step 6 of the README, preview
+      - name: Step 6 of the README, quick sample
+        shell: pwsh
+        run: python organize_photos.py --source E:\ --source F:\ --source G:\ --output H:\Organized --dry-run --sample 5
+      - name: Step 7 of the README, full preview
         shell: pwsh
         run: python organize_photos.py --source E:\ --source F:\ --source G:\ --output H:\Organized --dry-run
-      - name: Step 7 of the README, run for real
+      - name: Step 8 of the README, run for real
         shell: pwsh
         run: python organize_photos.py --source E:\ --source F:\ --source G:\ --output H:\Organized
       - name: Interrupted-and-resumed run copies nothing twice
