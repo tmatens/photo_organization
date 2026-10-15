@@ -4,6 +4,12 @@ Plain-language notes on every change to the script, newest first. Each entry
 links to the pull request, which holds the exact code change and a longer
 explanation.
 
+## The reasons for the two removals, in one place
+
+The README now has a short section, "Why there is no example matching or
+look-alike grouping", with the case for removing both in 1.2.0 and the
+risks that come with it. Nothing in the tool changed.
+
 ## The download step is spelled out
 
 Step 2 of the Windows walkthrough now says exactly where to click on the
