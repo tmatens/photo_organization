@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-organize_photos.py — Organize a large photo library directly on your computer.
+organize_photos.py — Organize a large photo and video library on your computer.
 
 Reads every photo under --source (e.g. an external drive; repeat the option
 to combine several drives), then builds a clean, organized COPY under
@@ -8,7 +8,8 @@ to combine several drives), then builds a clean, organized COPY under
 no recompression.
 
 What it does:
-  1. Scans all subfolders for photos (JPG, PNG, HEIC, WEBP, TIFF, BMP).
+  1. Scans all subfolders for photos (JPG, PNG, HEIC, WEBP, TIFF, BMP) and
+     videos (MOV, MP4, M4V, 3GP, AVI, MKV, WMV, MTS).
   2. Finds duplicates. A file that is byte-for-byte identical to one already
      seen is listed in the manifest instead of being copied twice. With
      --dup-threshold, photos that merely LOOK the same (a thumbnail, a
@@ -45,9 +46,10 @@ import hashlib
 import os
 import re
 import shutil
+import struct
 import sys
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 try:
     from PIL import Image, ExifTags
@@ -71,6 +73,8 @@ HEIC_EXTS = {".heic", ".heif"}
 if HEIC_OK:
     IMAGE_EXTS |= HEIC_EXTS
 VIDEO_EXTS = {".mov", ".mp4", ".m4v", ".avi", ".3gp", ".mkv", ".wmv", ".mts"}
+# Formats built from QuickTime/MP4 "boxes", which carry a creation time.
+QUICKTIME_EXTS = {".mov", ".mp4", ".m4v", ".3gp"}
 
 # Folders that never hold a person's photos: OS trash and index folders,
 # Synology thumbnail caches, and the junk a Mac zip adds.
@@ -184,12 +188,10 @@ def iter_images(root, skipped, exclude=None):
                 skipped["hidden"] += 1
                 continue
             ext = os.path.splitext(name)[1].lower()
-            if ext in IMAGE_EXTS:
+            if ext in IMAGE_EXTS or ext in VIDEO_EXTS:
                 yield os.path.join(dirpath, name)
             elif ext in HEIC_EXTS:
                 skipped["heic"] += 1     # only reached when pillow-heif is absent
-            elif ext in VIDEO_EXTS:
-                skipped["video"] += 1
             else:
                 skipped["other"] += 1
 
@@ -312,6 +314,87 @@ def content_hash(path):
     return h.hexdigest()
 
 
+def quicktime_creation_time(path):
+    """Creation time stored in a MOV/MP4 file's 'mvhd' box, as local time;
+    None if the file has none or is not a QuickTime/MP4 container.
+
+    The file is a sequence of boxes (size, type, payload). The movie header
+    lives inside 'moov', which iPhones usually write at the END of the file,
+    so the top level is walked by seeking over each box rather than reading
+    the video data. The time is seconds since 1904-01-01 UTC.
+    """
+    try:
+        with open(longpath(path), "rb") as f:
+            f.seek(0, 2)
+            total = f.tell()
+
+            def boxes(start, end):
+                pos = start
+                while pos + 8 <= end:
+                    f.seek(pos)
+                    hdr = f.read(8)
+                    if len(hdr) < 8:
+                        return
+                    size, kind = struct.unpack(">I4s", hdr)
+                    hdr_len = 8
+                    if size == 1:                      # 64-bit size follows
+                        size = struct.unpack(">Q", f.read(8))[0]
+                        hdr_len = 16
+                    elif size == 0:                    # box runs to end of file
+                        size = end - pos
+                    if size < hdr_len:
+                        return
+                    yield kind, pos + hdr_len, pos + size
+                    pos += size
+
+            for kind, start, end in boxes(0, total):
+                if kind != b"moov":
+                    continue
+                for kind2, start2, _end2 in boxes(start, end):
+                    if kind2 != b"mvhd":
+                        continue
+                    f.seek(start2)
+                    version = f.read(1)[0]
+                    f.seek(start2 + 4)
+                    if version == 1:
+                        secs = struct.unpack(">Q", f.read(8))[0]
+                    else:
+                        secs = struct.unpack(">I", f.read(4))[0]
+                    if secs == 0:
+                        return None
+                    epoch = datetime(1904, 1, 1, tzinfo=timezone.utc)
+                    return (epoch + timedelta(seconds=secs)).astimezone().replace(tzinfo=None)
+    except (OSError, struct.error, OverflowError, ValueError):
+        pass
+    return None
+
+
+def inspect_video(path):
+    """What the script needs to know about a video: content hash and date.
+    Videos have no perceptual hash, so they are deduplicated by content only
+    and never matched against the example image."""
+    try:
+        sha = content_hash(path)
+    except OSError:
+        return None
+    dt = date_from_filename(os.path.basename(path))
+    dsrc = "filename"
+    if dt is None and os.path.splitext(path)[1].lower() in QUICKTIME_EXTS:
+        dt = quicktime_creation_time(path)
+        dsrc = "video-metadata"
+    if dt is None:
+        dt, dsrc = datetime.fromtimestamp(os.path.getmtime(longpath(path))), "file-date"
+    return {"kind": "video", "sha": sha, "hash": None, "chrome": None,
+            "dims": "", "pixels": 0, "date": dt, "date_source": dsrc}
+
+
+def inspect_file(path, need_chrome):
+    """inspect_image() or inspect_video() depending on the extension."""
+    if os.path.splitext(path)[1].lower() in VIDEO_EXTS:
+        return inspect_video(path)
+    return inspect_image(path, need_chrome)
+
+
 def inspect_image(path, need_chrome):
     """Everything the script needs to know about one image, read in a single
     open: content hash, perceptual hash, chrome hash (if asked), dimensions
@@ -325,8 +408,9 @@ def inspect_image(path, need_chrome):
             dt, dsrc = best_date(path, img)
     except Exception:
         return None
-    return {"sha": sha, "hash": h, "chrome": ch, "dims": "%dx%d" % (w, hgt),
-            "pixels": w * hgt, "date": dt, "date_source": dsrc}
+    return {"kind": "image", "sha": sha, "hash": h, "chrome": ch,
+            "dims": "%dx%d" % (w, hgt), "pixels": w * hgt, "date": dt,
+            "date_source": dsrc}
 
 
 def hamming(a, b):
@@ -389,7 +473,7 @@ def scan(todo, need_chrome):
     for i, path in enumerate(todo, 1):
         if i % 500 == 0 or i == len(todo):
             print("  scanned %d/%d ..." % (i, len(todo)))
-        info = inspect_image(path, need_chrome)
+        info = inspect_file(path, need_chrome)
         entry = {"path": path, "ext": os.path.splitext(path)[1].lower(),
                  "status": None, "dest": "", "dupe_of": ""}
         if info is None:
@@ -427,7 +511,7 @@ def find_duplicates(entries, args, seen_sha, kept_phash):
     for ph, src_path in kept_phash:
         groups.append([ph, src_path, []])
     for e in readable:
-        if e["status"] is not None:
+        if e["status"] is not None or e["hash"] is None:   # videos: no visual hash
             continue
         hi = hash_int(e["hash"])
         for g in groups:
@@ -494,7 +578,7 @@ def main():
         print("Scanning %s ..." % source)
         paths.extend(p for p in iter_images(source, skipped, exclude=output)
                      if os.path.abspath(p) != example_abs)
-    print("Found %d image files." % len(paths))
+    print("Found %d photo and video files." % len(paths))
     todo = [p for p in paths if p not in done]
     if done:
         print("Resuming: %d already in manifest, %d still to do."
@@ -531,8 +615,9 @@ def main():
             writer.writerow(MANIFEST_COLUMNS)
 
         def record(e, date_str=""):
+            phash = e.get("hash")
             writer.writerow([e["path"], e["dest"], date_str,
-                             str(e.get("hash", "")), e.get("sha", ""),
+                             "" if phash is None else str(phash), e.get("sha", ""),
                              e.get("dims", ""), e["dupe_of"], e["status"]])
             mf.flush()   # each line lands on disk as soon as it is decided
 
@@ -576,7 +661,7 @@ def main():
             dt, dsrc = e["date"], e["date_source"]
             sim_hash = e["chrome"] if args.example_chrome else e["hash"]
             ex_hash = example_chrome if args.example_chrome else example_hash
-            similar = (ex_hash is not None
+            similar = (ex_hash is not None and sim_hash is not None
                        and hamming(sim_hash, ex_hash) <= args.similar_threshold)
 
             stem = dt.strftime("%Y%m%d_%H%M%S")
@@ -598,6 +683,8 @@ def main():
             date_str = dt.strftime("%Y-%m-%d %H:%M:%S") + " (%s)" % dsrc
             if copy(e):
                 stats["matched" if similar else ("undated" if undated else "copied")] += 1
+                if e["kind"] == "video":
+                    stats["videos"] += 1
             record(e, date_str)
 
     print("\nDone%s." % (" (dry run: nothing copied)" if args.dry_run else ""))
@@ -608,6 +695,7 @@ def main():
         print("  copied, no EXIF date: %d (in %s/, sorted by file date)"
               % (stats["undated"], args.undated_folder))
     print("  matched example:   %d" % stats["matched"])
+    print("  (videos among the above: %d)" % stats["videos"])
     print("  duplicates skipped:%d" % stats["duplicate"])
     if args.dup_threshold is not None:
         print("  near-duplicates:   %d (in _duplicates/)" % stats["near-duplicate"])
@@ -619,9 +707,6 @@ def main():
         print("  NOT INCLUDED: %d HEIC/HEIF photos. Install the optional "
               "package (pip install -r requirements-optional.txt) and run "
               "again to add them." % skipped["heic"])
-    if skipped["video"]:
-        print("  NOT INCLUDED: %d video files. This tool organizes photos "
-              "only; videos stay where they are." % skipped["video"])
     if skipped["hidden"]:
         print("  ignored %d hidden/system files (names starting with '.')"
               % skipped["hidden"])

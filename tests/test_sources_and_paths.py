@@ -25,7 +25,7 @@ def test_several_sources_become_one_library_with_cross_drive_duplicates(tmp_path
     assert rows["a again.jpg"]["status"] == "duplicate"
     assert rows["a again.jpg"]["duplicate_of"] == str(a)
     assert len(list(out.rglob("*.jpg"))) == 2
-    assert "Found 3 image files." in proc.stdout
+    assert "Found 3 photo and video files." in proc.stdout
 
 
 def test_output_inside_one_of_several_sources_is_not_rescanned(tmp_path):

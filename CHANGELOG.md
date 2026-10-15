@@ -4,6 +4,23 @@ Plain-language notes on every change to the script, newest first. Each entry
 links to the pull request, which holds the exact code change and a longer
 explanation.
 
+## Videos are organized too
+
+Phone and camera videos (MOV, MP4, M4V, 3GP, AVI, MKV, WMV, MTS) are now
+copied into the same year/month folders as photos. The date comes from the
+filename when it carries one, otherwise from the creation time stored
+inside MOV and MP4 files, otherwise the video goes to `_review/` like an
+undated photo. The manifest marks header dates `(video-metadata)`.
+
+Identical videos are copied once, the same as photos. Two things apply to
+photos only, because they need to look at the picture: the look-alike
+grouping and the example-screenshot matching. Videos are never mistaken
+for a screenshot.
+
+One caveat: the creation time inside a video file is recorded in universal
+time, and the script converts it to this computer's local time. A video
+shot near midnight, or while travelling, can land on the neighbouring day.
+
 ## Several drives into one library, and Windows path rules
 
 `--source` can now be given more than once, so three old external drives

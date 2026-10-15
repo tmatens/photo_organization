@@ -103,3 +103,27 @@ def write_resized(src, dest, size, quality=85):
     with Image.open(src) as img:
         img.resize(size, Image.LANCZOS).save(dest, "JPEG", quality=quality)
     return dest
+
+
+def write_mp4(path, created=None, body=b"\x00" * 64):
+    """A minimal MP4: an ftyp box, a large mdat box, then (as iPhones write
+    it) the moov box at the END, holding an mvhd with the creation time."""
+    import struct
+    from datetime import datetime, timezone
+
+    def box(kind, payload):
+        return struct.pack(">I4s", 8 + len(payload), kind) + payload
+
+    if created is None:
+        mvhd_payload = b"\x00" * 100                     # creation time 0 = unknown
+    else:
+        secs = int((created.replace(tzinfo=timezone.utc)
+                    - datetime(1904, 1, 1, tzinfo=timezone.utc)).total_seconds())
+        mvhd_payload = b"\x00" * 4 + struct.pack(">II", secs, secs) + b"\x00" * 92
+    data = (box(b"ftyp", b"isom" + b"\x00\x00\x02\x00" + b"isomiso2mp41")
+            + box(b"mdat", body)
+            + box(b"moov", box(b"mvhd", mvhd_payload)))
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return path

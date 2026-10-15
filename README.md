@@ -1,13 +1,15 @@
 # Photo Organizer
 
-Organizes a large photo library **directly on your computer** — no uploads, no
-compression, and your originals are never modified, moved, or deleted. It
-builds an organized *copy* and tells you exactly where everything went.
+Organizes a large photo and video library **directly on your computer** — no
+uploads, no compression, and your originals are never modified, moved, or
+deleted. It builds an organized *copy* and tells you exactly where everything
+went.
 
 ## What it does
 
 1. **Scans** every subfolder of your external drive for photos
-   (JPG, PNG, HEIC, WEBP, TIFF, BMP).
+   (JPG, PNG, HEIC, WEBP, TIFF, BMP) and videos (MOV, MP4, M4V, 3GP, AVI,
+   MKV, WMV, MTS).
 2. **Finds duplicates** — a file that is identical to one already seen is
    listed in the manifest instead of being copied twice. Optionally it also
    groups photos that merely *look* the same (a thumbnail, a re-saved copy,
@@ -17,9 +19,10 @@ builds an organized *copy* and tells you exactly where everything went.
    `20220314_100000.jpg`, using the photo's EXIF data. If there is no EXIF
    capture date but the filename carries a timestamp (phones and apps write
    names like `IMG_20220314_100000.jpg` or `Screenshot_20220314-100000.png`),
-   that is used instead. Anything with no date at all goes into a separate
-   `_review/YYYY/MM` tree sorted by file date, so a guessed date never
-   mixes with a real one.
+   that is used instead. Videos use the filename timestamp or the date
+   stored inside MOV/MP4 files. Anything with no date at all goes into a
+   separate `_review/YYYY/MM` tree sorted by file date, so a guessed date
+   never mixes with a real one.
 4. **Pulls out lookalikes** — give it an example image (e.g. one of your
    music-app screenshots) and it copies every visually similar photo into its
    own folder.
@@ -102,9 +105,10 @@ stricter, higher = looser).
   with spaces needs quotes and no trailing backslash: `"D:\My Photos"`.
   Folder trees deeper than Windows' usual 260-character limit are handled;
   nothing on the drive needs renaming first.
-- Videos are not copied. The script organizes photos only and tells you at
-  the end how many video files it left behind. Hidden files (names starting
-  with `.`) and system folders such as the Recycle Bin are ignored.
+- Videos are organized alongside photos. Identical videos are copied once;
+  the look-alike grouping (`--dup-threshold`) and the example matching apply
+  to photos only. Hidden files (names starting with `.`) and system folders
+  such as the Recycle Bin are ignored.
 - The file date used for `_review/` photos is often just the day they were
   copied or downloaded, not the day they were taken. Treat that tree as
   "needs a look", not as a timeline.

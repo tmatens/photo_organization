@@ -38,7 +38,7 @@ def test_output_may_live_inside_the_source_without_being_rescanned(library):
     proc = run_script("--source", src, "--output", out)
     assert len(read_manifest(out)) == 1
     assert len(list(out.rglob("*.jpg"))) == 1
-    assert "Found 1 image files." in proc.stdout
+    assert "Found 1 photo and video files." in proc.stdout
 
 
 def test_source_inside_output_is_refused(library):
@@ -48,14 +48,13 @@ def test_source_inside_output_is_refused(library):
     assert run_script("--source", inner, "--output", src, check=False).returncode != 0
 
 
-def test_videos_are_counted_and_left_behind(library):
+def test_unknown_file_types_are_left_alone(library):
     src, out = library
     write_photo(src / "one.jpg", seed=1, date_original="2021:05:04 10:11:12")
-    (src / "clip.MOV").write_bytes(b"not really a movie")
-    (src / "clip2.mp4").write_bytes(b"not really a movie")
-    proc = run_script("--source", src, "--output", out)
+    (src / "notes.txt").write_text("not media")
+    (src / "album.pdf").write_bytes(b"%PDF")
+    run_script("--source", src, "--output", out)
     assert list(names(out)) == ["one.jpg"]
-    assert "NOT INCLUDED: 2 video files" in proc.stdout
 
 
 @pytest.mark.skipif(HAVE_HEIF, reason="pillow-heif is installed, so HEIC is handled")
