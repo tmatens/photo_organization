@@ -2,9 +2,10 @@
 """
 organize_photos.py — Organize a large photo library directly on your computer.
 
-Reads every photo under --source (e.g. an external drive), then builds a clean,
-organized COPY under --output. Your originals are never modified, moved, or
-deleted. No uploads, no recompression.
+Reads every photo under --source (e.g. an external drive; repeat the option
+to combine several drives), then builds a clean, organized COPY under
+--output. Your originals are never modified, moved, or deleted. No uploads,
+no recompression.
 
 What it does:
   1. Scans all subfolders for photos (JPG, PNG, HEIC, WEBP, TIFF, BMP).
@@ -33,7 +34,7 @@ Requires: Python 3.9+, plus:  pip install pillow imagehash
 Optional (for iPhone HEIC photos):  pip install pillow-heif
 
 Usage:
-  python organize_photos.py --source "E:\\" --output "E:\\Organized"
+  python organize_photos.py --source E:\\ --source F:\\ --output D:\\Organized
   python organize_photos.py --source /Volumes/MyDrive --output ~/Organized \\
       --example ~/screenshot_example.png --dry-run
 """
@@ -89,8 +90,10 @@ EXIF_DATETIME = 306              # when the file was last saved
 
 def parse_args():
     p = argparse.ArgumentParser(description="Organize a photo library in place.")
-    p.add_argument("--source", required=True,
-                   help="Folder to scan (e.g. your external drive).")
+    p.add_argument("--source", required=True, action="append", metavar="FOLDER",
+                   help="Folder to scan (e.g. an external drive). Repeat the "
+                        "option to combine several drives into one library; "
+                        "duplicates are found across all of them.")
     p.add_argument("--output", required=True,
                    help="Folder where the organized copy will be built.")
     p.add_argument("--example", default=None,
@@ -127,6 +130,40 @@ def parse_args():
     return p.parse_args()
 
 
+def longpath(path):
+    """The path in the form Windows file APIs accept beyond 260 characters.
+
+    Deep folder trees on backup drives routinely exceed that limit, and
+    without this prefix Windows reports the file as missing. Other platforms
+    return the path unchanged.
+    """
+    if os.name != "nt" or path.startswith("\\\\?\\"):
+        return path
+    if path.startswith("\\\\"):          # \\server\share -> \\?\UNC\server\share
+        return "\\\\?\\UNC\\" + path[2:]
+    return "\\\\?\\" + path
+
+
+def plainpath(path):
+    """Undo longpath() for anything a person will read."""
+    if path.startswith("\\\\?\\UNC\\"):
+        return "\\\\" + path[8:]
+    if path.startswith("\\\\?\\"):
+        return path[4:]
+    return path
+
+
+def is_inside(path, folder, pathmod=os.path):
+    """True if path is folder itself or anything under it. Works for drive
+    roots like E:\\ (naive string checks double the backslash and fail) and
+    for paths on different drives (never inside each other)."""
+    try:
+        common = pathmod.commonpath([path, folder])
+    except ValueError:
+        return False
+    return pathmod.normcase(common) == pathmod.normcase(folder)
+
+
 def iter_images(root, skipped, exclude=None):
     """Yield image paths under root, in a stable order.
 
@@ -134,7 +171,8 @@ def iter_images(root, skipped, exclude=None):
     output, when it lives inside the source). Counts what it leaves behind
     in `skipped` so the summary can say so.
     """
-    for dirpath, dirnames, filenames in os.walk(root):
+    for dirpath, dirnames, filenames in os.walk(longpath(root)):
+        dirpath = plainpath(dirpath)
         dirnames[:] = sorted(
             d for d in dirnames
             if d not in SKIP_DIRS and not d.startswith(".")
@@ -213,19 +251,19 @@ def best_date(path, img):
         return from_name, "filename"
     if dt is not None:
         return dt, dsrc
-    return datetime.fromtimestamp(os.path.getmtime(path)), "file-date"
+    return datetime.fromtimestamp(os.path.getmtime(longpath(path))), "file-date"
 
 
 def date_taken(path):
     """(datetime, source) for a path; see best_date() for the sources."""
     try:
-        with Image.open(path) as img:
+        with Image.open(longpath(path)) as img:
             return best_date(path, img)
     except Exception:
         from_name = date_from_filename(os.path.basename(path))
         if from_name is not None:
             return from_name, "filename"
-    return datetime.fromtimestamp(os.path.getmtime(path)), "file-date"
+    return datetime.fromtimestamp(os.path.getmtime(longpath(path))), "file-date"
 
 
 def exif_date(img):
@@ -268,7 +306,7 @@ def content_hash(path):
     """SHA-256 of the file's bytes: two files with the same value are
     identical copies, whatever their names or dates."""
     h = hashlib.sha256()
-    with open(path, "rb") as f:
+    with open(longpath(path), "rb") as f:
         for chunk in iter(lambda: f.read(1 << 20), b""):
             h.update(chunk)
     return h.hexdigest()
@@ -280,7 +318,7 @@ def inspect_image(path, need_chrome):
     and date. Returns None if the file cannot be read as an image."""
     try:
         sha = content_hash(path)
-        with Image.open(path) as img:
+        with Image.open(longpath(path)) as img:
             h = imagehash.phash(img)
             ch = chrome_hash(img) if need_chrome else None
             w, hgt = img.size
@@ -313,7 +351,7 @@ def unique_dest(folder, stem, ext, taken):
     """
     candidate = os.path.join(folder, stem + ext)
     n = 2
-    while candidate in taken or os.path.exists(candidate):
+    while candidate in taken or os.path.exists(longpath(candidate)):
         candidate = os.path.join(folder, "%s_%d%s" % (stem, n, ext))
         n += 1
     taken.add(candidate)
@@ -334,10 +372,10 @@ def load_manifest(path):
 def copy_atomic(src, dest):
     """Copy through a temporary name so an interrupted copy never leaves a
     half-written file under the final name."""
-    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    os.makedirs(longpath(os.path.dirname(dest)), exist_ok=True)
     tmp = dest + ".part"
-    shutil.copy2(src, tmp)
-    os.replace(tmp, dest)
+    shutil.copy2(longpath(src), longpath(tmp))
+    os.replace(longpath(tmp), longpath(dest))
 
 
 MANIFEST_COLUMNS = ["source_path", "destination_path", "date_taken",
@@ -416,14 +454,15 @@ def find_duplicates(entries, args, seen_sha, kept_phash):
 
 def main():
     args = parse_args()
-    source = os.path.abspath(args.source)
+    sources = [os.path.abspath(s) for s in args.source]
     output = os.path.abspath(args.output)
-    if not os.path.isdir(source):
-        sys.exit("Source folder not found: %s" % source)
-    if output == source:
-        sys.exit("Output must be a different folder from the source.")
-    if source.startswith(output + os.sep):
-        sys.exit("Output must not contain the source folder.")
+    for source in sources:
+        if not os.path.isdir(source):
+            sys.exit("Source folder not found: %s" % source)
+        if os.path.normcase(output) == os.path.normcase(source):
+            sys.exit("Output must be a different folder from the source.")
+        if is_inside(source, output):
+            sys.exit("Output must not contain a source folder: %s" % source)
     if args.dup_threshold is not None and not 0 <= args.dup_threshold <= 64:
         sys.exit("--dup-threshold must be between 0 and 64.")
 
@@ -449,10 +488,12 @@ def main():
         output, "manifest_dryrun.csv" if args.dry_run else "manifest.csv")
     done = {} if args.dry_run else load_manifest(manifest)
 
-    print("Scanning %s ..." % source)
     skipped = defaultdict(int)
-    paths = [p for p in iter_images(source, skipped, exclude=output)
-             if os.path.abspath(p) != example_abs]
+    paths = []
+    for source in sources:
+        print("Scanning %s ..." % source)
+        paths.extend(p for p in iter_images(source, skipped, exclude=output)
+                     if os.path.abspath(p) != example_abs)
     print("Found %d image files." % len(paths))
     todo = [p for p in paths if p not in done]
     if done:
