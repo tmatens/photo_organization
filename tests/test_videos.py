@@ -52,10 +52,9 @@ def test_identical_videos_are_copied_once(library):
     src, out = library
     first = write_mp4(src / "a.mov", created=datetime(2021, 5, 4, 15, 11, 12))
     (src / "a copy.mov").write_bytes(first.read_bytes())
-    run_script("--source", src, "--output", out, "--dup-threshold", "4")
+    run_script("--source", src, "--output", out)
     r = rows(out)
     assert sorted(x["status"] for x in r.values()) == ["copied", "duplicate"]
-    assert all(x["perceptual_hash"] == "" for x in r.values())
     assert len(list(out.rglob("*.mov"))) == 1
 
 

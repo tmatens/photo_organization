@@ -32,7 +32,7 @@ def main(output):
     assert one("IMG_0003.jpg")["date_taken"] == "2019-12-25 08:00:00 (exif-original)"
 
     # Cross-drive exact duplicate copied once; thumbnail is a separate copy
-    # (no --dup-threshold was used) and lands in _review (no date).
+    # and lands in _review (no date).
     statuses = sorted(r["status"] for r in by_name["IMG_0001.jpg"])
     assert statuses == ["copied", "duplicate"], statuses
     assert rel(one("IMG_0001_small.jpg")).startswith("_review/")

@@ -11,10 +11,7 @@ What it does:
   1. Scans all subfolders for photos (JPG, PNG, HEIC, WEBP, TIFF, BMP) and
      videos (MOV, MP4, M4V, 3GP, AVI, MKV, WMV, MTS).
   2. Finds duplicates. A file that is byte-for-byte identical to one already
-     seen is listed in the manifest instead of being copied twice. With
-     --dup-threshold, photos that merely LOOK the same (a thumbnail, a
-     re-saved copy, a burst frame) are grouped too: the largest version is
-     kept in the main tree and the rest go to _duplicates/ for review.
+     seen is listed in the manifest instead of being copied twice.
   3. Sorts everything by the date the photo was taken (EXIF data) into
      YYYY/MM folders with clean filenames. Photos with no EXIF date at all
      (images received through messaging apps, downloads) are dated from
@@ -30,7 +27,7 @@ What it does:
      real run would use. Re-running after an interruption picks up where the
      manifest left off instead of copying everything again.
 
-Requires: Python 3.9+, plus:  pip install pillow imagehash
+Requires: Python 3.10+, plus:  pip install pillow
 Optional (for iPhone HEIC photos):  pip install pillow-heif
 
 Usage:
@@ -53,11 +50,6 @@ try:
     from PIL import Image, ExifTags
 except ImportError:
     sys.exit("Pillow is required: pip install pillow")
-
-try:
-    import imagehash
-except ImportError:
-    sys.exit("imagehash is required: pip install imagehash")
 
 try:
     from pillow_heif import register_heif_opener
@@ -98,13 +90,6 @@ def parse_args():
                         "duplicates are found across all of them.")
     p.add_argument("--output", required=True,
                    help="Folder where the organized copy will be built.")
-    p.add_argument("--dup-threshold", type=int, default=None, metavar="N",
-                   help="Also group photos that LOOK the same: perceptual-hash "
-                        "distance 0-64. 2-4 catches thumbnails and re-saved "
-                        "copies; 6-10 also catches burst frames and small "
-                        "edits. The largest version of each group is kept; "
-                        "the others are copied to _duplicates/. Off by "
-                        "default: only byte-identical files are duplicates.")
     p.add_argument("--review-folder", default="_review", metavar="NAME",
                    help="Folder for screenshots and for photos with no date "
                         "(default _review). Sorted by date inside it.")
@@ -352,8 +337,7 @@ def quicktime_creation_time(path):
 
 
 def inspect_video(path):
-    """What the script needs to know about a video: content hash and date.
-    Videos have no perceptual hash, so they are deduplicated by content only."""
+    """What the script needs to know about a video: content hash and date."""
     try:
         sha = content_hash(path)
     except OSError:
@@ -365,8 +349,8 @@ def inspect_video(path):
         dsrc = "video-metadata"
     if dt is None:
         dt, dsrc = datetime.fromtimestamp(os.path.getmtime(longpath(path))), "file-date"
-    return {"kind": "video", "sha": sha, "hash": None,
-            "dims": "", "pixels": 0, "date": dt, "date_source": dsrc}
+    return {"kind": "video", "sha": sha, "dims": "", "date": dt,
+            "date_source": dsrc}
 
 
 def inspect_file(path):
@@ -378,28 +362,17 @@ def inspect_file(path):
 
 def inspect_image(path):
     """Everything the script needs to know about one image, read in a single
-    open: content hash, perceptual hash, dimensions and date. Returns None
-    if the file cannot be read as an image."""
+    open: content hash, dimensions and date. Returns None if the file cannot
+    be read as an image."""
     try:
         sha = content_hash(path)
         with Image.open(longpath(path)) as img:
-            h = imagehash.phash(img)
             w, hgt = img.size
             dt, dsrc = best_date(path, img)
     except Exception:
         return None
-    return {"kind": "image", "sha": sha, "hash": h,
-            "dims": "%dx%d" % (w, hgt), "pixels": w * hgt, "date": dt,
-            "date_source": dsrc}
-
-
-def hash_int(h):
-    """An imagehash as a plain int, so distances are a cheap XOR + popcount."""
-    return int(str(h), 16)
-
-
-def int_hamming(a, b):
-    return (a ^ b).bit_count()
+    return {"kind": "image", "sha": sha, "dims": "%dx%d" % (w, hgt),
+            "date": dt, "date_source": dsrc}
 
 
 def unique_dest(folder, stem, ext, taken):
@@ -439,8 +412,7 @@ def copy_atomic(src, dest):
 
 
 MANIFEST_COLUMNS = ["source_path", "destination_path", "date_taken",
-                    "perceptual_hash", "content_hash", "dimensions",
-                    "duplicate_of", "status"]
+                    "content_hash", "dimensions", "duplicate_of", "status"]
 
 
 def scan(todo):
@@ -460,56 +432,18 @@ def scan(todo):
     return entries
 
 
-def find_duplicates(entries, args, seen_sha, kept_phash):
-    """Decide which entries are duplicates of which.
-
-    Exact duplicates (same bytes) always count. Visual duplicates only count
-    when --dup-threshold is given; within each visual group the entry with
-    the most pixels is kept and the rest become near-duplicates of it. A
-    photo copied by an EARLIER run (seen_sha / kept_phash) is always the
-    keeper: it is already on disk and is not moved.
-    """
-    readable = [e for e in entries if e["status"] is None]
-
-    # 1. Exact duplicates: first occurrence in path order wins.
-    for e in readable:
+def find_duplicates(entries, seen_sha):
+    """Mark every entry whose bytes were already seen as a duplicate of the
+    first occurrence (in path order). seen_sha may be pre-seeded with the
+    copies an earlier run kept, so a duplicate of one of those is still
+    recognised."""
+    for e in entries:
+        if e["status"] is not None:
+            continue
         if e["sha"] in seen_sha:
             e["status"], e["dupe_of"] = "duplicate", seen_sha[e["sha"]]
         else:
             seen_sha[e["sha"]] = e["path"]
-
-    if args.dup_threshold is None:
-        return
-
-    # 2. Visual duplicates among what is left. Each group is a list of
-    # entries; a group may also be anchored to a photo from an earlier run.
-    groups = []   # [int hash of representative, anchor path or None, [entries]]
-    for ph, src_path in kept_phash:
-        groups.append([ph, src_path, []])
-    for e in readable:
-        if e["status"] is not None or e["hash"] is None:   # videos: no visual hash
-            continue
-        hi = hash_int(e["hash"])
-        for g in groups:
-            if int_hamming(hi, g[0]) <= args.dup_threshold:
-                g[2].append(e)
-                break
-        else:
-            groups.append([hi, None, [e]])
-
-    for _rep, anchor, members in groups:
-        if not members:
-            continue
-        if anchor is not None:
-            keeper_path, losers = anchor, members
-        else:
-            # Most pixels wins; path order breaks ties, so the result is the
-            # same on every run.
-            keeper = max(members, key=lambda e: (e["pixels"], -members.index(e)))
-            keeper_path = keeper["path"]
-            losers = [e for e in members if e is not keeper]
-        for e in losers:
-            e["status"], e["dupe_of"] = "near-duplicate", keeper_path
 
 
 def main():
@@ -523,8 +457,6 @@ def main():
             sys.exit("Output must be a different folder from the source.")
         if is_inside(source, output):
             sys.exit("Output must not contain a source folder: %s" % source)
-    if args.dup_threshold is not None and not 0 <= args.dup_threshold <= 64:
-        sys.exit("--dup-threshold must be between 0 and 64.")
 
     # The manifest is the record of what has been done. A real run appends
     # to it and skips anything already listed, which is what makes re-running
@@ -548,22 +480,16 @@ def main():
     # Seed from the previous run so a duplicate of a photo copied last time
     # is still recognised as a duplicate this time.
     seen_sha = {}      # content hash -> source path of the copy that was kept
-    kept_phash = []    # (int perceptual hash, source path) of kept copies
     taken = set()      # destination paths planned or already used
     for src_path, row in done.items():
-        if row["status"] == "copied":
-            if row.get("content_hash"):
-                seen_sha.setdefault(row["content_hash"], src_path)
-            if row.get("perceptual_hash"):
-                kept_phash.append((int(row["perceptual_hash"], 16), src_path))
+        if row["status"] == "copied" and row.get("content_hash"):
+            seen_sha.setdefault(row["content_hash"], src_path)
         if row["destination_path"]:
             taken.add(row["destination_path"])
 
-    # Step 1: read every photo. Step 2: decide duplicates with the whole
-    # picture in hand, so the best copy of each photo can be chosen rather
-    # than whichever one happened to be seen first.
+    # Step 1: read every file. Step 2: decide duplicates. Step 3: copy.
     entries = scan(todo)
-    find_duplicates(entries, args, seen_sha, kept_phash)
+    find_duplicates(entries, seen_sha)
 
     # Step 3: copy and record, one line at a time.
     stats = defaultdict(int)
@@ -576,9 +502,7 @@ def main():
             writer.writerow(MANIFEST_COLUMNS)
 
         def record(e, date_str=""):
-            phash = e.get("hash")
-            writer.writerow([e["path"], e["dest"], date_str,
-                             "" if phash is None else str(phash), e.get("sha", ""),
+            writer.writerow([e["path"], e["dest"], date_str, e.get("sha", ""),
                              e.get("dims", ""), e["dupe_of"], e["status"]])
             mf.flush()   # each line lands on disk as soon as it is decided
 
@@ -604,12 +528,9 @@ def main():
                 record(e)
                 continue
 
-            if e["status"] in ("duplicate", "near-duplicate"):
-                stats[e["status"]] += 1
-                # Exact duplicates are only listed unless --keep-dupes; near
-                # duplicates are always kept for review, because "looks the
-                # same" is a judgement the owner may want to check.
-                if e["status"] == "near-duplicate" or args.keep_dupes:
+            if e["status"] == "duplicate":
+                stats["duplicate"] += 1
+                if args.keep_dupes:
                     e["dest"] = unique_dest(
                         os.path.join(output, "_duplicates"),
                         os.path.splitext(os.path.basename(e["path"]))[0],
@@ -651,8 +572,6 @@ def main():
           % (args.review_folder, stats["screenshots"], stats["undated"]))
     print("  (videos among the above: %d)" % stats["videos"])
     print("  duplicates skipped:%d" % stats["duplicate"])
-    if args.dup_threshold is not None:
-        print("  near-duplicates:   %d (in _duplicates/)" % stats["near-duplicate"])
     print("  unreadable:        %d" % stats["errors"])
     if stats["copy_errors"]:
         print("  COPY FAILURES:     %d (see error-copy rows in the manifest)"

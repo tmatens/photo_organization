@@ -4,6 +4,23 @@ Plain-language notes on every change to the script, newest first. Each entry
 links to the pull request, which holds the exact code change and a longer
 explanation.
 
+## Look-alike grouping is gone; the review folder needs a real look
+
+The optional `--dup-threshold` grouping of photos that merely looked the
+same has been removed, and with it the second library the tool depended
+on. The install is now a single package, Pillow. "Duplicate" means
+byte-for-byte identical, which is what was asked for; a thumbnail or a
+re-saved copy is a different file and is copied too. In practice those
+copies have no date information and land in `_review/` rather than next
+to the original. The manifest no longer has a `perceptual_hash` column,
+and `_duplicates/` is only created by `--keep-dupes`.
+
+The README now says plainly that the review folder is not only junk.
+Photos saved from social media or messaging apps arrive with their dates
+stripped, so a real photo of yours that a friend posted and you saved back
+is, to the tool, undated, and goes to `_review/` with the screenshots and
+memes. That folder needs a look, not just a delete.
+
 ## The example-image matching is gone
 
 The option to pull out every photo that looked like one example image has
