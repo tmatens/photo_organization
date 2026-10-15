@@ -83,7 +83,9 @@ says how to run the drives one at a time.
 
 The README now has a short section, "Why there is no example matching or
 look-alike grouping", with the case for removing both in 1.2.0 and the
-risks that come with it. Nothing in the tool changed.
+risks that come with it. Nothing in the tool changed. *(Since renamed
+"Why the organizer itself does no image matching", because the screenshot
+sorter added in 1.5.0 does match screenshots, as a separate step.)*
 
 ## The download step is spelled out
 
@@ -134,15 +136,17 @@ With this, the review folder holds everything that is not a dated camera
 photo or video: screenshots, memes, messaging-app images and downloads.
 The example-image matching still works for anyone who wants one app's
 screenshots in a folder of their own, but the Windows walkthrough no
-longer depends on it. The option that names the folder is now
-`--review-folder`.
+longer depends on it. *(Superseded: the example matching was removed in
+the next change; `sort_screenshots.py`, above, is its replacement.)* The
+option that names the folder is now `--review-folder`.
 
 ## A start-to-finish Windows walkthrough
 
 The README now opens with the whole job as ten numbered steps: install
 Python, download the release, plug in the drives, preview, run, pull out
 the screenshots, look through the result, and only then wipe the old
-drives. Nothing in the tool changed.
+drives. Nothing in the tool changed. *(The walkthrough has since grown to
+eleven steps and no longer uses the example matching.)*
 
 ## Videos are organized too
 
@@ -154,8 +158,8 @@ undated photo. The manifest marks header dates `(video-metadata)`.
 
 Identical videos are copied once, the same as photos. Two things apply to
 photos only, because they need to look at the picture: the look-alike
-grouping and the example-screenshot matching. Videos are never mistaken
-for a screenshot.
+grouping and the example-screenshot matching. *(Both since removed.)*
+Videos are never mistaken for a screenshot.
 
 One caveat: the creation time inside a video file is recorded in universal
 time, and the script converts it to this computer's local time. A video
@@ -187,6 +191,10 @@ ranking it above the EXIF save date (which is only when the file was last
 written) and above the file's modification time (which is often just when
 it was copied). The manifest marks these `(filename)`. In practice this
 moves most Android screenshots out of `_review/` and into the right month.
+*(Superseded twice: since "Every screenshot goes to the review folder",
+screenshots always go to `_review/`; and since "Only a camera's own date
+puts a file in the main library", a filename date only decides the month
+inside `_review/`, never a place in the main library.)*
 
 ## Photos with no real date get their own folder, and the scan skips junk
 
@@ -198,7 +206,8 @@ guesses were indistinguishable from the facts. They now go into
 `_review/YYYY/MM/` instead, so the main library is only photos with a
 known date, and the undated ones are together in one place to look over.
 `--mix-undated` restores the old behaviour; `--undated-folder` renames the
-folder.
+folder. *(The option is now `--review-folder`, and the folder has
+sub-folders `screenshots/`, `photos/` and `videos/`.)*
 
 **What the scan ignores.** Hidden files (anything starting with `.`,
 including the `._photo.jpg` sidecar files macOS leaves on external drives)
@@ -292,7 +301,7 @@ The script now has a test suite that builds tiny synthetic photo libraries
 and runs the script against them. The tests capture the promises the README
 makes: originals are never touched, photos land in year/month folders,
 identical files are copied once, dry run copies nothing, and the example
-screenshot matching works. Every future change will add a test that fails
+screenshot matching works *(since removed)*. Every future change will add a test that fails
 before the fix and passes after it, so a bug fixed once stays fixed.
 
 GitHub runs these tests automatically on Windows, macOS and Linux for every
