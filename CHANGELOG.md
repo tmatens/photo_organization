@@ -4,6 +4,18 @@ Plain-language notes on every change to the script, newest first. Each entry
 links to the pull request, which holds the exact code change and a longer
 explanation.
 
+## Dates are read from filenames when the photo itself has none
+
+Phones and many apps put the capture time in the filename:
+`IMG_20220314_100000.jpg`, `PXL_20220314_100000123.jpg`,
+`Screenshot_20220314-100000.png`, `2022-03-14 10.00.00.jpg`. Android
+screenshots in particular have no EXIF date but always have this. The
+script now uses a filename timestamp when there is no EXIF capture date,
+ranking it above the EXIF save date (which is only when the file was last
+written) and above the file's modification time (which is often just when
+it was copied). The manifest marks these `(filename)`. In practice this
+moves most Android screenshots out of `_review/` and into the right month.
+
 ## Photos with no real date get their own folder, and the scan skips junk
 
 **Undated photos.** A screenshot, a picture received through a messaging

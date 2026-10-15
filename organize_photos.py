@@ -15,7 +15,9 @@ What it does:
      kept in the main tree and the rest go to _duplicates/ for review.
   3. Sorts everything by the date the photo was taken (EXIF data) into
      YYYY/MM folders with clean filenames. Photos with no EXIF date at all
-     (screenshots, images received through messaging apps, downloads) go
+     (screenshots, images received through messaging apps, downloads) are
+     dated from their filename when it carries one (IMG_20220314_100000,
+     Screenshot_20220314-100000, 2022-03-14 10.00.00); otherwise they go
      into their own _review/YYYY/MM tree, dated by the file's modification
      time, so guessed dates never mix with real ones.
   4. Optionally pulls out every photo that looks like an example image you
@@ -40,6 +42,7 @@ import argparse
 import csv
 import hashlib
 import os
+import re
 import shutil
 import sys
 from collections import defaultdict
@@ -170,22 +173,59 @@ def parse_exif_datetime(val):
         return None
 
 
-def date_taken(path):
-    """Return (datetime, source) for when the photo was taken.
+# Filenames that carry a timestamp. Phones and photo apps write these, and
+# the timestamp is the moment of capture, which makes it more trustworthy
+# than an EXIF save time and far better than the file's modification time.
+#   IMG_20220314_100000.jpg, PXL_20220314_100000123.jpg, 20220314_100000.jpg
+#   Screenshot_20220314-100000.png, Screenshot_20220314-100000_Music.jpg
+#   2022-03-14 10.00.00.jpg, 2022-03-14_10-00-00.jpg, 2022-03-14T10:00:00.jpg
+FILENAME_DATE_PATTERNS = [
+    re.compile(r"(?<!\d)((?:19|20)\d{2})(\d{2})(\d{2})[_-](\d{2})(\d{2})(\d{2})(?!\d{3}\d)"),
+    re.compile(r"(?<!\d)((?:19|20)\d{2})-(\d{2})-(\d{2})[ _T](\d{2})[.:\-](\d{2})[.:\-](\d{2})"),
+]
+
+
+def date_from_filename(name):
+    """A datetime embedded in a filename, or None. Digits that do not form a
+    real calendar date (month 13, hour 25) do not count."""
+    for pat in FILENAME_DATE_PATTERNS:
+        for m in pat.finditer(name):
+            try:
+                return datetime(*(int(g) for g in m.groups()))
+            except ValueError:
+                continue
+    return None
+
+
+def best_date(path, img):
+    """(datetime, source) for when the photo was taken, best evidence first.
 
     source is one of: exif-original (capture time), exif-digitized (scan or
-    import time), exif-modified (last save; weakest), file-date (no EXIF at
-    all; the file's modification time, which may just be when it was copied).
+    import time), filename (a timestamp in the file's name), exif-modified
+    (last save; weak), file-date (nothing better; the file's modification
+    time, which may just be when it was copied).
     """
+    dt, dsrc = exif_date(img)
+    if dsrc in ("exif-original", "exif-digitized"):
+        return dt, dsrc
+    from_name = date_from_filename(os.path.basename(path))
+    if from_name is not None:
+        return from_name, "filename"
+    if dt is not None:
+        return dt, dsrc
+    return datetime.fromtimestamp(os.path.getmtime(path)), "file-date"
+
+
+def date_taken(path):
+    """(datetime, source) for a path; see best_date() for the sources."""
     try:
         with Image.open(path) as img:
-            dt, dsrc = exif_date(img)
-            if dt is not None:
-                return dt, dsrc
+            return best_date(path, img)
     except Exception:
-        pass
-    ts = os.path.getmtime(path)
-    return datetime.fromtimestamp(ts), "file-date"
+        from_name = date_from_filename(os.path.basename(path))
+        if from_name is not None:
+            return from_name, "filename"
+    return datetime.fromtimestamp(os.path.getmtime(path)), "file-date"
 
 
 def exif_date(img):
@@ -244,11 +284,9 @@ def inspect_image(path, need_chrome):
             h = imagehash.phash(img)
             ch = chrome_hash(img) if need_chrome else None
             w, hgt = img.size
-            dt, dsrc = exif_date(img)
+            dt, dsrc = best_date(path, img)
     except Exception:
         return None
-    if dt is None:
-        dt, dsrc = datetime.fromtimestamp(os.path.getmtime(path)), "file-date"
     return {"sha": sha, "hash": h, "chrome": ch, "dims": "%dx%d" % (w, hgt),
             "pixels": w * hgt, "date": dt, "date_source": dsrc}
 
