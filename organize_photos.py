@@ -8,8 +8,11 @@ deleted. No uploads, no recompression.
 
 What it does:
   1. Scans all subfolders for photos (JPG, PNG, HEIC, WEBP, TIFF, BMP).
-  2. Finds duplicates (exact visual duplicates) and lists them instead of
-     copying them twice.
+  2. Finds duplicates. A file that is byte-for-byte identical to one already
+     seen is listed in the manifest instead of being copied twice. With
+     --dup-threshold, photos that merely LOOK the same (a thumbnail, a
+     re-saved copy, a burst frame) are grouped too: the largest version is
+     kept in the main tree and the rest go to _duplicates/ for review.
   3. Sorts everything by the date the photo was taken (EXIF data; falls back
      to the file's modification date for screenshots, which usually have no
      EXIF data) into YYYY/MM folders with clean filenames.
@@ -90,11 +93,16 @@ def parse_args():
                         "bands), ignoring the variable middle area. Best for "
                         "screenshots of a music app where the artwork changes "
                         "with every song.")
-    p.add_argument("--dup-threshold", type=int, default=0,
-                   help="Max perceptual-hash distance to count as a duplicate. "
-                        "0 = exact duplicates only (fastest). Default 0.")
+    p.add_argument("--dup-threshold", type=int, default=None, metavar="N",
+                   help="Also group photos that LOOK the same: perceptual-hash "
+                        "distance 0-64. 2-4 catches thumbnails and re-saved "
+                        "copies; 6-10 also catches burst frames and small "
+                        "edits. The largest version of each group is kept; "
+                        "the others are copied to _duplicates/. Off by "
+                        "default: only byte-identical files are duplicates.")
     p.add_argument("--keep-dupes", action="store_true",
-                   help="Also copy duplicates into _duplicates/ for review.")
+                   help="Also copy byte-identical duplicates into _duplicates/ "
+                        "instead of just listing them.")
     p.add_argument("--dry-run", action="store_true",
                    help="Scan and report only; copy nothing.")
     return p.parse_args()
@@ -102,8 +110,9 @@ def parse_args():
 
 def iter_images(root):
     """Yield absolute paths of image files under root."""
-    for dirpath, _dirnames, filenames in os.walk(root):
-        for name in filenames:
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames.sort()      # same order on every run and every filesystem
+        for name in sorted(filenames):
             ext = os.path.splitext(name)[1].lower()
             if ext in IMAGE_EXTS:
                 yield os.path.join(dirpath, name)
@@ -180,26 +189,46 @@ def chrome_hash(img):
     return imagehash.phash(comp)
 
 
+def content_hash(path):
+    """SHA-256 of the file's bytes: two files with the same value are
+    identical copies, whatever their names or dates."""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def inspect_image(path, need_chrome):
     """Everything the script needs to know about one image, read in a single
-    open: perceptual hash, chrome hash (if asked), dimensions and date.
-    Returns None if the file cannot be read as an image."""
+    open: content hash, perceptual hash, chrome hash (if asked), dimensions
+    and date. Returns None if the file cannot be read as an image."""
     try:
+        sha = content_hash(path)
         with Image.open(path) as img:
             h = imagehash.phash(img)
             ch = chrome_hash(img) if need_chrome else None
-            dims = "%dx%d" % img.size
+            w, hgt = img.size
             dt, dsrc = exif_date(img)
     except Exception:
         return None
     if dt is None:
         dt, dsrc = datetime.fromtimestamp(os.path.getmtime(path)), "file-date"
-    return {"hash": h, "chrome": ch, "dims": dims, "date": dt,
-            "date_source": dsrc}
+    return {"sha": sha, "hash": h, "chrome": ch, "dims": "%dx%d" % (w, hgt),
+            "pixels": w * hgt, "date": dt, "date_source": dsrc}
 
 
 def hamming(a, b):
     return int(a - b)
+
+
+def hash_int(h):
+    """An imagehash as a plain int, so distances are a cheap XOR + popcount."""
+    return int(str(h), 16)
+
+
+def int_hamming(a, b):
+    return (a ^ b).bit_count()
 
 
 def unique_dest(folder, stem, ext, taken):
@@ -239,7 +268,77 @@ def copy_atomic(src, dest):
 
 
 MANIFEST_COLUMNS = ["source_path", "destination_path", "date_taken",
-                    "perceptual_hash", "dimensions", "duplicate_of", "status"]
+                    "perceptual_hash", "content_hash", "dimensions",
+                    "duplicate_of", "status"]
+
+
+def scan(todo, need_chrome):
+    """Read every image once. Returns one entry per path, in path order."""
+    entries = []
+    for i, path in enumerate(todo, 1):
+        if i % 500 == 0 or i == len(todo):
+            print("  scanned %d/%d ..." % (i, len(todo)))
+        info = inspect_image(path, need_chrome)
+        entry = {"path": path, "ext": os.path.splitext(path)[1].lower(),
+                 "status": None, "dest": "", "dupe_of": ""}
+        if info is None:
+            entry["status"] = "error-unreadable"
+        else:
+            entry.update(info)
+        entries.append(entry)
+    return entries
+
+
+def find_duplicates(entries, args, seen_sha, kept_phash):
+    """Decide which entries are duplicates of which.
+
+    Exact duplicates (same bytes) always count. Visual duplicates only count
+    when --dup-threshold is given; within each visual group the entry with
+    the most pixels is kept and the rest become near-duplicates of it. A
+    photo copied by an EARLIER run (seen_sha / kept_phash) is always the
+    keeper: it is already on disk and is not moved.
+    """
+    readable = [e for e in entries if e["status"] is None]
+
+    # 1. Exact duplicates: first occurrence in path order wins.
+    for e in readable:
+        if e["sha"] in seen_sha:
+            e["status"], e["dupe_of"] = "duplicate", seen_sha[e["sha"]]
+        else:
+            seen_sha[e["sha"]] = e["path"]
+
+    if args.dup_threshold is None:
+        return
+
+    # 2. Visual duplicates among what is left. Each group is a list of
+    # entries; a group may also be anchored to a photo from an earlier run.
+    groups = []   # [int hash of representative, anchor path or None, [entries]]
+    for ph, src_path in kept_phash:
+        groups.append([ph, src_path, []])
+    for e in readable:
+        if e["status"] is not None:
+            continue
+        hi = hash_int(e["hash"])
+        for g in groups:
+            if int_hamming(hi, g[0]) <= args.dup_threshold:
+                g[2].append(e)
+                break
+        else:
+            groups.append([hi, None, [e]])
+
+    for _rep, anchor, members in groups:
+        if not members:
+            continue
+        if anchor is not None:
+            keeper_path, losers = anchor, members
+        else:
+            # Most pixels wins; path order breaks ties, so the result is the
+            # same on every run.
+            keeper = max(members, key=lambda e: (e["pixels"], -members.index(e)))
+            keeper_path = keeper["path"]
+            losers = [e for e in members if e is not keeper]
+        for e in losers:
+            e["status"], e["dupe_of"] = "near-duplicate", keeper_path
 
 
 def main():
@@ -250,6 +349,8 @@ def main():
         sys.exit("Source folder not found: %s" % source)
     if output == source or output.startswith(source + os.sep):
         sys.exit("Output must not be inside the source folder.")
+    if args.dup_threshold is not None and not 0 <= args.dup_threshold <= 64:
+        sys.exit("--dup-threshold must be between 0 and 64.")
 
     example_hash = None
     example_chrome = None
@@ -282,22 +383,28 @@ def main():
         print("Resuming: %d already in manifest, %d still to do."
               % (len(paths) - len(todo), len(todo)))
 
-    kept_hashes = []     # (hash, dest) of copied images, for near-dupe checks
-    seen_exact = {}      # str(hash) -> first source path
-    taken = set()        # destination paths planned or already used
-    stats = defaultdict(int)
-
     # Seed from the previous run so a duplicate of a photo copied last time
     # is still recognised as a duplicate this time.
+    seen_sha = {}      # content hash -> source path of the copy that was kept
+    kept_phash = []    # (int perceptual hash, source path) of kept copies
+    taken = set()      # destination paths planned or already used
     for src_path, row in done.items():
-        if row["status"] in ("copied", "matched-example") and row["perceptual_hash"]:
-            seen_exact.setdefault(row["perceptual_hash"], src_path)
-            if args.dup_threshold > 0:
-                kept_hashes.append((imagehash.hex_to_hash(row["perceptual_hash"]),
-                                    row["destination_path"]))
+        if row["status"] in ("copied", "matched-example"):
+            if row.get("content_hash"):
+                seen_sha.setdefault(row["content_hash"], src_path)
+            if row.get("perceptual_hash"):
+                kept_phash.append((int(row["perceptual_hash"], 16), src_path))
         if row["destination_path"]:
             taken.add(row["destination_path"])
 
+    # Step 1: read every photo. Step 2: decide duplicates with the whole
+    # picture in hand, so the best copy of each photo can be chosen rather
+    # than whichever one happened to be seen first.
+    entries = scan(todo, args.example_chrome)
+    find_duplicates(entries, args, seen_sha, kept_phash)
+
+    # Step 3: copy and record, one line at a time.
+    stats = defaultdict(int)
     os.makedirs(output, exist_ok=True)
     fresh = args.dry_run or not done
     with open(manifest, "w" if fresh else "a", newline="",
@@ -306,55 +413,51 @@ def main():
         if fresh:
             writer.writerow(MANIFEST_COLUMNS)
 
-        def record(row):
-            writer.writerow(row)
+        def record(e, date_str=""):
+            writer.writerow([e["path"], e["dest"], date_str,
+                             str(e.get("hash", "")), e.get("sha", ""),
+                             e.get("dims", ""), e["dupe_of"], e["status"]])
             mf.flush()   # each line lands on disk as soon as it is decided
 
-        for i, path in enumerate(todo, 1):
-            if i % 500 == 0 or i == len(todo):
-                print("  processed %d/%d ..." % (i, len(todo)))
-            info = inspect_image(path, args.example_chrome)
-            if info is None:
-                record([path, "", "", "", "", "", "error-unreadable"])
-                stats["errors"] += 1
-                continue
-            h, ch = info["hash"], info["chrome"]
-            key = str(h)
-            ext = os.path.splitext(path)[1].lower()
+        def copy(e):
+            """Copy e to e['dest']; on failure mark it and return False."""
+            if args.dry_run:
+                return True
+            try:
+                copy_atomic(e["path"], e["dest"])
+                return True
+            except OSError as err:
+                print("  could not copy %s: %s" % (e["path"], err),
+                      file=sys.stderr)
+                stats["copy_errors"] += 1
+                e["status"] = "error-copy"
+                return False
 
-            # Duplicate check
-            is_dupe, dupe_of = False, ""
-            if key in seen_exact:
-                is_dupe, dupe_of = True, seen_exact[key]
-            elif args.dup_threshold > 0:
-                for kh, kdest in kept_hashes:
-                    if hamming(h, kh) <= args.dup_threshold:
-                        is_dupe, dupe_of = True, kdest
-                        break
-            if is_dupe:
-                stats["duplicates"] += 1
-                dest = ""
-                if args.keep_dupes:
-                    dest = unique_dest(os.path.join(output, "_duplicates"),
-                                       os.path.splitext(os.path.basename(path))[0],
-                                       ext, taken)
-                    if not args.dry_run:
-                        try:
-                            copy_atomic(path, dest)
-                        except OSError as e:
-                            print("  could not copy %s: %s" % (path, e),
-                                  file=sys.stderr)
-                            stats["copy_errors"] += 1
-                            record([path, dest, "", key, info["dims"], dupe_of,
-                                    "error-copy"])
-                            continue
-                record([path, dest, "", key, info["dims"], dupe_of, "duplicate"])
+        for i, e in enumerate(entries, 1):
+            if i % 500 == 0 or i == len(entries):
+                print("  copied %d/%d ..." % (i, len(entries)))
+            if e["status"] == "error-unreadable":
+                stats["errors"] += 1
+                record(e)
                 continue
-            seen_exact[key] = path
+
+            if e["status"] in ("duplicate", "near-duplicate"):
+                stats[e["status"]] += 1
+                # Exact duplicates are only listed unless --keep-dupes; near
+                # duplicates are always kept for review, because "looks the
+                # same" is a judgement the owner may want to check.
+                if e["status"] == "near-duplicate" or args.keep_dupes:
+                    e["dest"] = unique_dest(
+                        os.path.join(output, "_duplicates"),
+                        os.path.splitext(os.path.basename(e["path"]))[0],
+                        e["ext"], taken)
+                    copy(e)
+                record(e)
+                continue
 
             # Date + similarity (similarity uses the chrome hash when requested)
-            dt, dsrc = info["date"], info["date_source"]
-            sim_hash = ch if args.example_chrome else h
+            dt, dsrc = e["date"], e["date_source"]
+            sim_hash = e["chrome"] if args.example_chrome else e["hash"]
             ex_hash = example_chrome if args.example_chrome else example_hash
             similar = (ex_hash is not None
                        and hamming(sim_hash, ex_hash) <= args.similar_threshold)
@@ -363,32 +466,24 @@ def main():
             if similar:
                 folder = os.path.join(output, args.similar_name,
                                       dt.strftime("%Y"), dt.strftime("%m"))
-                status = "matched-example"
+                e["status"] = "matched-example"
             else:
                 folder = os.path.join(output, dt.strftime("%Y"), dt.strftime("%m"))
-                status = "copied"
-
-            dest = unique_dest(folder, stem, ext, taken)
+                e["status"] = "copied"
+            e["dest"] = unique_dest(folder, stem, e["ext"], taken)
             date_str = dt.strftime("%Y-%m-%d %H:%M:%S") + " (%s)" % dsrc
-            if not args.dry_run:
-                try:
-                    copy_atomic(path, dest)  # copy; original untouched
-                except OSError as e:
-                    print("  could not copy %s: %s" % (path, e), file=sys.stderr)
-                    stats["copy_errors"] += 1
-                    record([path, dest, date_str, key, info["dims"], "",
-                            "error-copy"])
-                    continue
-            kept_hashes.append((h, dest))
-            stats["matched" if similar else "copied"] += 1
-            record([path, dest, date_str, key, info["dims"], "", status])
+            if copy(e):
+                stats["matched" if similar else "copied"] += 1
+            record(e, date_str)
 
     print("\nDone%s." % (" (dry run: nothing copied)" if args.dry_run else ""))
     if done:
         print("  done in a previous run: %d" % (len(paths) - len(todo)))
     print("  copied:            %d" % stats["copied"])
     print("  matched example:   %d" % stats["matched"])
-    print("  duplicates skipped:%d" % stats["duplicates"])
+    print("  duplicates skipped:%d" % stats["duplicate"])
+    if args.dup_threshold is not None:
+        print("  near-duplicates:   %d (in _duplicates/)" % stats["near-duplicate"])
     print("  unreadable:        %d" % stats["errors"])
     if stats["copy_errors"]:
         print("  COPY FAILURES:     %d (see error-copy rows in the manifest)"

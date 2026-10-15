@@ -8,8 +8,11 @@ builds an organized *copy* and tells you exactly where everything went.
 
 1. **Scans** every subfolder of your external drive for photos
    (JPG, PNG, HEIC, WEBP, TIFF, BMP).
-2. **Finds duplicates** — exact visual duplicates are listed once in a report
-   instead of being copied twice.
+2. **Finds duplicates** — a file that is identical to one already seen is
+   listed in the manifest instead of being copied twice. Optionally it also
+   groups photos that merely *look* the same (a thumbnail, a re-saved copy,
+   a burst frame), keeps the largest version, and puts the rest in a review
+   folder.
 3. **Sorts by date taken** into `YYYY/MM` folders with clean filenames like
    `20220314_100000.jpg`. Uses the photo's EXIF data; screenshots (which have
    no EXIF data) fall back to the file date.
@@ -77,8 +80,8 @@ stricter, higher = looser).
 | `--example FILE` | Pull visually similar photos into their own folder |
 | `--similar-name NAME` | Folder name for matches (default `matched_example`) |
 | `--similar-threshold N` | Strictness of matching, 0–64 (default 10) |
-| `--dup-threshold N` | Also treat near-duplicates as dupes (default 0 = exact only) |
-| `--keep-dupes` | Copy duplicates into `_duplicates/` for manual review |
+| `--dup-threshold N` | Also group photos that look the same, 0–64 (off by default; 2–4 catches thumbnails and re-saved copies; 6–10 also catches burst frames and small edits). The largest version is kept; the rest go to `_duplicates/` |
+| `--keep-dupes` | Also copy identical duplicates into `_duplicates/` instead of only listing them |
 
 ## Notes
 
@@ -88,6 +91,11 @@ stricter, higher = looser).
   script prints progress as it goes. If it is interrupted, run the same
   command again: it reads `manifest.csv`, skips everything already done, and
   continues. To start over from scratch, delete the output folder first.
+- "Duplicate" means byte-for-byte identical. Two photos that look the same
+  but differ in size or quality are both real files, so by default both are
+  copied. Use `--dup-threshold` to group them; the one with the most pixels
+  stays in the main library and the others go to `_duplicates/`, where you
+  can check them before deleting anything.
 - `manifest.csv` in the output folder records every decision, so you can
   audit or undo anything. It is written one line at a time as the script
   works, so even an interrupted run leaves a complete record of what it did.
