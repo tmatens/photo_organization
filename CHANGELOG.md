@@ -1,8 +1,9 @@
 # What changed and why
 
-Plain-language notes on every change to the script, newest first. Each entry
-links to the pull request, which holds the exact code change and a longer
-explanation.
+Plain-language notes on every change to the tool, newest first. Each entry
+describes the tool **as it was at that point**, so an older entry can
+describe behaviour that a newer entry above it has since changed. For what
+the tool does today, read `README.md`.
 
 ## README corrections
 
@@ -207,7 +208,9 @@ counted as unreadable photos and the thumbnail caches were copied as if
 they were photos.
 
 **What it tells you it left behind.** Videos are not copied, and the
-summary now says how many were found. iPhone HEIC photos need an optional
+summary now says how many were found. *(Superseded: since "Videos are
+organized too", above, videos are copied and organized like photos.)*
+iPhone HEIC photos need an optional
 package; without it they were silently skipped, and the summary now says
 how many and how to include them.
 
