@@ -11,10 +11,7 @@ went.
    (JPG, PNG, HEIC, WEBP, TIFF, BMP) and videos (MOV, MP4, M4V, 3GP, AVI,
    MKV, WMV, MTS).
 2. **Finds duplicates** — a file that is identical to one already seen is
-   listed in the manifest instead of being copied twice. Optionally it also
-   groups photos that merely *look* the same (a thumbnail, a re-saved copy,
-   a burst frame), keeps the largest version, and puts the rest in a review
-   folder.
+   listed in the manifest instead of being copied twice.
 3. **Sorts by date taken** into `YYYY/MM` folders with clean filenames like
    `20220314_100000.jpg`, using the photo's EXIF data. If there is no EXIF
    capture date but the filename carries a timestamp (phones and apps write
@@ -22,11 +19,14 @@ went.
    that is used instead. Videos use the filename timestamp or the date
    stored inside MOV/MP4 files.
 4. **Keeps non-photos out of the timeline.** Screenshots (any PNG, or a
-   file named `Screenshot...`) and anything with no date at all (memes,
-   images from messaging apps, downloads) go into a separate
-   `_review/YYYY/MM` tree, sorted by month, for you to look through.
-   Cameras and phones never save a photo as PNG, so a PNG is a screenshot,
-   a meme or a graphic.
+   file named `Screenshot...`) and anything with no date at all go into a
+   separate `_review/YYYY/MM` tree, sorted by month, for you to look
+   through. Cameras and phones never save a photo as PNG, so a PNG is a
+   screenshot, a meme or a graphic. **Photos saved from social media,
+   messaging apps or the web also end up here**, because those services
+   strip the date information on the way out: a real photo of yours that a
+   friend posted and you saved back is, to the tool, undated. The review
+   folder is not only junk; it needs a look.
 5. **Writes `manifest.csv`** — a spreadsheet listing every photo, where it
    went, its date, and whether it was a duplicate or a match.
 
@@ -45,7 +45,7 @@ This is the whole job, start to finish. Each step is one command.
 4. **Open PowerShell in the tool's folder:** in File Explorer, open
    `C:\photo_organizer`, click in the address bar, type `powershell`, press
    Enter.
-5. **Install the two packages the tool needs** (once):
+5. **Install what the tool needs** (once):
    ```
    pip install -r requirements.txt
    pip install -r requirements-optional.txt
@@ -70,10 +70,10 @@ This is the whole job, start to finish. Each step is one command.
    stopped.
 8. **Look through `D:\Organized`:**
    - `2019\`, `2020\`, ... — photos and videos with a known date.
-   - `_review\` — screenshots, memes, images from messaging apps,
-     downloads: everything that is not a camera photo or has no real date.
-     Sorted by month inside. Comb through and keep or delete as you like.
-   - `_duplicates\` — only appears if you used `--dup-threshold`.
+   - `_review\` — everything that is not a dated camera photo: screenshots,
+     memes, downloads, and also **real photos saved from social media or
+     messaging apps**, which arrive with their dates stripped. Sorted by
+     month inside. This folder needs a look, not just a delete.
    - `manifest.csv` — one line per file on the old drives saying what
      happened to it.
 9. **Only when you are happy with the new drive**, wipe the old ones. The
@@ -126,7 +126,6 @@ python3 organize_photos.py --source /Volumes/MyDrive --output ~/Organized
 | Option | What it does |
 |---|---|
 | `--dry-run` | Scan and report only; copy nothing |
-| `--dup-threshold N` | Also group photos that look the same, 0–64 (off by default; 2–4 catches thumbnails and re-saved copies; 6–10 also catches burst frames and small edits). The largest version is kept; the rest go to `_duplicates/` |
 | `--keep-dupes` | Also copy identical duplicates into `_duplicates/` instead of only listing them |
 | `--review-folder NAME` | Folder for screenshots and undated photos (default `_review`) |
 | `--png-is-photo` | Treat PNG and `Screenshot...` files like any other photo instead of sending them to the review folder |
@@ -140,8 +139,7 @@ python3 organize_photos.py --source /Volumes/MyDrive --output ~/Organized
   with spaces needs quotes and no trailing backslash: `"D:\My Photos"`.
   Folder trees deeper than Windows' usual 260-character limit are handled;
   nothing on the drive needs renaming first.
-- Videos are organized alongside photos. Identical videos are copied once;
-  the look-alike grouping (`--dup-threshold`) applies to photos only. Hidden files (names starting with `.`) and system folders
+- Videos are organized alongside photos. Identical videos are copied once. Hidden files (names starting with `.`) and system folders
   such as the Recycle Bin are ignored.
 - The file date used for `_review/` photos is often just the day they were
   copied or downloaded, not the day they were taken. Treat that tree as
@@ -151,10 +149,9 @@ python3 organize_photos.py --source /Volumes/MyDrive --output ~/Organized
   command again: it reads `manifest.csv`, skips everything already done, and
   continues. To start over from scratch, delete the output folder first.
 - "Duplicate" means byte-for-byte identical. Two photos that look the same
-  but differ in size or quality are both real files, so by default both are
-  copied. Use `--dup-threshold` to group them; the one with the most pixels
-  stays in the main library and the others go to `_duplicates/`, where you
-  can check them before deleting anything.
+  but differ in size or quality (a thumbnail, a copy re-saved by a messaging
+  app) are both real files, so both are copied. The smaller copy usually has
+  no date information and so lands in `_review/`.
 - `manifest.csv` in the output folder records every decision, so you can
   audit or undo anything. It is written one line at a time as the script
   works, so even an interrupted run leaves a complete record of what it did.

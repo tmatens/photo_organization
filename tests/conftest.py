@@ -20,7 +20,7 @@ SCRIPT = REPO_ROOT / "organize_photos.py"
 
 def make_image(seed, size=(640, 480)):
     """A deterministic, photo-like image. Different seeds look very different
-    to a perceptual hash; the same seed is pixel-identical every time."""
+    to the eye; the same seed is pixel-identical every time."""
     rng = random.Random(seed)
     img = Image.new("RGB", size, tuple(rng.randint(0, 255) for _ in range(3)))
     draw = ImageDraw.Draw(img)
