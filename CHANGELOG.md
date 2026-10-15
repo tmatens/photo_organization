@@ -4,6 +4,21 @@ Plain-language notes on every change to the script, newest first. Each entry
 links to the pull request, which holds the exact code change and a longer
 explanation.
 
+## Several drives into one library, and Windows path rules
+
+`--source` can now be given more than once, so three old external drives
+can be combined into one new one in a single run. Duplicates are found
+across all of them: a photo that lives on two drives is copied once, and
+the manifest says which drive the kept copy came from.
+
+Two Windows-specific problems are fixed. A whole drive given as `E:\` was
+not recognised as containing `E:\Organized`, because the check doubled
+the backslash; the comparison is now done the way Windows itself does it,
+case-insensitively and per drive. And files inside folder trees deeper
+than 260 characters, which old backups produce easily, were reported as
+missing; every file operation now uses the form of the path that Windows
+accepts without that limit. The manifest still shows paths the normal way.
+
 ## Dates are read from filenames when the photo itself has none
 
 Phones and many apps put the capture time in the filename:

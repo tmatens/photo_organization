@@ -49,11 +49,13 @@ iPhone HEIC photos only: also run `pip install -r requirements-optional.txt`.
 
 **1. Preview first (dry run — copies nothing):**
 ```
+# Windows: three old drives (E:, F:, G:) into a new drive D:
+python organize_photos.py --source E:\ --source F:\ --source G:\ --output D:\Organized --dry-run
 # Mac
 python3 organize_photos.py --source /Volumes/MyDrive --output ~/Organized --dry-run
-# Windows
-python organize_photos.py --source E:\ --output C:\Organized --dry-run
 ```
+Repeat `--source` for each drive or folder you want combined. Duplicates are
+found across all of them, so a photo that lives on two drives is copied once.
 
 The preview writes `manifest_dryrun.csv` in the output folder: one line per
 photo showing exactly where the real run would put it. Open it in a
@@ -61,6 +63,9 @@ spreadsheet and check a few rows before continuing.
 
 **2. Full run:**
 ```
+# Windows
+python organize_photos.py --source E:\ --source F:\ --source G:\ --output D:\Organized
+# Mac
 python3 organize_photos.py --source /Volumes/MyDrive --output ~/Organized
 ```
 
@@ -92,7 +97,11 @@ stricter, higher = looser).
 ## Notes
 
 - The `--output` folder can be anywhere, including on the same external
-  drive or inside the source folder; the script never scans its own output.
+  drive or inside a source folder; the script never scans its own output.
+- **Windows paths:** write a whole drive as `E:\` with no quotes. A folder
+  with spaces needs quotes and no trailing backslash: `"D:\My Photos"`.
+  Folder trees deeper than Windows' usual 260-character limit are handled;
+  nothing on the drive needs renaming first.
 - Videos are not copied. The script organizes photos only and tells you at
   the end how many video files it left behind. Hidden files (names starting
   with `.`) and system folders such as the Recycle Bin are ignored.
