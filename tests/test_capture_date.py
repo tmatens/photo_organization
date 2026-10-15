@@ -21,11 +21,12 @@ def test_capture_date_wins_over_save_date(library):
     assert row["date_taken"] == "2019-06-01 09:30:00 (exif-original)"
 
 
-def test_save_date_is_used_only_when_nothing_better_exists(library):
+def test_save_date_alone_sorts_the_review_folder_but_not_the_library(library):
     src, out = library
     write_photo(src / "saved_only.jpg", seed=2, date_modified="2022:03:14 10:00:00")
     run_script("--source", src, "--output", out)
-    assert (out / "2022" / "03" / "20220314_100000.jpg").is_file()
+    assert (out / "_review" / "photos" / "2022" / "03" / "20220314_100000.jpg").is_file()
+    assert not (out / "2022").exists()
     assert read_manifest(out)[0]["date_taken"].endswith("(exif-modified)")
 
 

@@ -4,6 +4,40 @@ Plain-language notes on every change to the script, newest first. Each entry
 links to the pull request, which holds the exact code change and a longer
 explanation.
 
+## Only a camera's own date puts a file in the main library
+
+Before, a timestamp in a filename, or an EXIF save time, was enough to
+file a photo into the main `YYYY/MM` tree. Those can be written by
+software long after the picture was taken: a Telegram save named
+`photo_2022-03-14_10-00-00.jpg` is dated when it was sent, not shot, and
+a save time is when an app last wrote the file. Now only camera evidence
+counts: the EXIF capture or digitized date in a photo, or the creation
+time inside a MOV/MP4 video. Everything else goes to `_review/`, still
+sorted by month using the best date available, so the review pile stays
+browsable.
+
+For videos the bar is higher still, because the creation time inside a
+MOV/MP4 file is written by whatever program last encoded it: a clip
+re-sent through WhatsApp or exported from an editor has a good header
+dated when that happened. A video counts as camera-dated only with both
+a header time and a camera-style filename (`VID_20220314_100000.mp4`,
+`IMG_1234.MOV`, and the usual Samsung, Pixel, Canon, Nikon, DJI and GoPro
+patterns). Messaging apps, screen recorders and downloads never use those
+names.
+
+The review folder now has a sub-folder per reason, so each can be gone
+through on its own: `_review/screenshots/` (skim and delete),
+`_review/photos/` (needs a proper look; social-media and messaging saves
+land here), `_review/videos/` (large; a separate sitting). Each is sorted
+by month inside.
+
+What moves: filename-dated app saves, software-only save times, and
+re-encoded videos leave the main timeline for `_review/`. Camera photos
+and camera videos with their original names are unaffected.
+`--mix-undated` now means "file everything into the main tree by its
+best-guess date". The README has a new "How dates are decided" table and
+says how to run the drives one at a time.
+
 ## The reasons for the two removals, in one place
 
 The README now has a short section, "Why there is no example matching or

@@ -76,7 +76,7 @@ def test_photos_without_an_exif_date_go_to_their_own_tree(library):
     assert os.sep + "_review" + os.sep in rows["meme.jpg"]["destination_path"]
     assert rows["meme.jpg"]["date_taken"].endswith("(file-date)")
     assert os.sep + "_review" + os.sep not in rows["camera.jpg"]["destination_path"]
-    assert "to _review/: 0 screenshots, 1 with no date" in proc.stdout
+    assert "to _review/: 0 screenshots, 1 photos and 0 videos without a camera date" in proc.stdout
 
 
 def test_review_folder_name_and_mix_undated(library):

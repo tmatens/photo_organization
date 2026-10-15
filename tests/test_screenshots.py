@@ -17,10 +17,10 @@ def test_png_goes_to_review_even_with_a_date(library):
     proc = run_script("--source", src, "--output", out)
     r = rows(out)
     assert r["Screenshot_20220314-100000.png"]["destination_path"].endswith(
-        os.path.join("_review", "2022", "03", "20220314_100000.png"))
+        os.path.join("_review", "screenshots", "2022", "03", "20220314_100000.png"))
     assert os.sep + "_review" + os.sep in r["IMG_0042.PNG"]["destination_path"]
     assert os.sep + "_review" + os.sep not in r["IMG_0043.jpg"]["destination_path"]
-    assert "to _review/: 2 screenshots, 0 with no date" in proc.stdout
+    assert "to _review/: 2 screenshots, 0 photos and 0 videos without a camera date" in proc.stdout
 
 
 def test_samsung_jpeg_screenshot_goes_to_review_by_name(library):
@@ -35,10 +35,13 @@ def test_samsung_jpeg_screenshot_goes_to_review_by_name(library):
 def test_png_is_photo_turns_the_rule_off(library):
     src, out = library
     write_screenshot(src / "Screenshot_20220314-100000.png", chrome_seed=1, middle_seed=1)
-    run_script("--source", src, "--output", out, "--png-is-photo")
+    # Without the screenshot rule it is judged like any other file: a
+    # filename date alone is not camera evidence, so it still goes to review
+    # unless undated files are mixed in as well.
+    run_script("--source", src, "--output", out, "--png-is-photo", "--mix-undated")
     r = rows(out)["Screenshot_20220314-100000.png"]
     assert r["destination_path"].endswith(os.path.join("2022", "03", "20220314_100000.png"))
-    assert "_review" not in r["destination_path"]
+    assert os.sep + "_review" + os.sep not in os.path.relpath(r["destination_path"], out)
 
 
 def test_review_folder_is_sorted_by_month_inside(library):
@@ -46,5 +49,5 @@ def test_review_folder_is_sorted_by_month_inside(library):
     write_screenshot(src / "Screenshot_20220314-100000.png", chrome_seed=1, middle_seed=1)
     write_screenshot(src / "Screenshot_20210101-000000.png", chrome_seed=1, middle_seed=2)
     run_script("--source", src, "--output", out)
-    assert (out / "_review" / "2022" / "03").is_dir()
-    assert (out / "_review" / "2021" / "01").is_dir()
+    assert (out / "_review" / "screenshots" / "2022" / "03").is_dir()
+    assert (out / "_review" / "screenshots" / "2021" / "01").is_dir()

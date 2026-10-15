@@ -12,15 +12,17 @@ What it does:
      videos (MOV, MP4, M4V, 3GP, AVI, MKV, WMV, MTS).
   2. Finds duplicates. A file that is byte-for-byte identical to one already
      seen is listed in the manifest instead of being copied twice.
-  3. Sorts everything by the date the photo was taken (EXIF data) into
-     YYYY/MM folders with clean filenames. Photos with no EXIF date at all
-     (images received through messaging apps, downloads) are dated from
-     their filename when it carries one (IMG_20220314_100000,
-     2022-03-14 10.00.00); otherwise they go into a _review/YYYY/MM tree,
-     dated by the file's modification time, so guessed dates never mix
-     with real ones. Screenshots (any PNG, or a file named Screenshot...)
-     always go to _review, whatever date they carry: cameras never write
-     PNG, so a PNG is a screenshot, a meme or a graphic, not a photo.
+  3. Sorts everything a camera dated into YYYY/MM folders with clean
+     filenames: photos with an EXIF capture date, videos with a creation
+     time in their MOV/MP4 header. Everything else (images received through
+     messaging apps, downloads, exports) goes into a _review/YYYY/MM tree,
+     sorted by the best date available (a timestamp in the filename, then
+     the EXIF save time, then the file's modification time), so guessed
+     dates never mix with camera dates. Screenshots (any PNG, or a file
+     named Screenshot...) always go to _review, whatever date they carry:
+     cameras never write PNG. _review has a sub-folder per reason:
+     screenshots/, photos/ and videos/, so each can be looked through on
+     its own.
   4. Writes a manifest.csv describing where everything went, one line at a
      time as it works, so an interrupted run still leaves a complete record.
      A dry run writes manifest_dryrun.csv instead, with the destinations a
@@ -81,6 +83,28 @@ EXIF_DATETIME_ORIGINAL = 36867   # when the shutter fired
 EXIF_DATETIME_DIGITIZED = 36868  # when it was scanned or imported
 EXIF_DATETIME = 306              # when the file was last saved
 
+# Only these date sources prove a camera took the file. A filename
+# timestamp, an EXIF save time or the file's modification time can all be
+# written by software long after the fact, so they sort the review folder
+# but never place a file in the main library.
+CAMERA_DATE_SOURCES = ("exif-original", "exif-digitized")
+
+# A video's header creation time is written by whatever program last encoded
+# the file, so on its own it cannot tell a camera original from a copy that
+# WhatsApp or an editor re-encoded. Camera apps also name their files in a
+# few fixed ways; a messaging app, a screen recorder or a download never
+# uses these. A video counts as camera-dated only with BOTH a header time
+# and one of these names.
+CAMERA_VIDEO_NAMES = re.compile(
+    r"^(VID_\d{8}_\d{6}"        # Android camera: VID_20220314_100000
+    r"|PXL_\d{8}_\d{9}"         # Google Pixel: PXL_20220314_100000123
+    r"|\d{8}_\d{6}"             # Samsung camera: 20220314_100000
+    r"|IMG_\d{4}"                # iPhone: IMG_1234
+    r"|MVI_\d{4}|DSC_?\d{4}"    # Canon, Nikon, Sony stills cameras
+    r"|DJI_\d{4}"                # DJI
+    r"|GOPR\d{4}|G[HX]\d{6})",  # GoPro
+    re.IGNORECASE)
+
 
 def parse_args():
     p = argparse.ArgumentParser(description="Build an organized, deduplicated COPY of a photo and video library. Originals are never changed.")
@@ -91,11 +115,13 @@ def parse_args():
     p.add_argument("--output", required=True,
                    help="Folder where the organized copy will be built.")
     p.add_argument("--review-folder", default="_review", metavar="NAME",
-                   help="Folder for screenshots and for photos with no date "
-                        "(default _review). Sorted by date inside it.")
+                   help="Folder for screenshots and for anything without a "
+                        "camera date (default _review). Sorted by the best "
+                        "available date inside it.")
     p.add_argument("--mix-undated", action="store_true",
-                   help="File undated photos into the main YYYY/MM tree by "
-                        "file date instead of keeping them separate.")
+                   help="File photos and videos that lack a camera date into "
+                        "the main YYYY/MM tree by their best-guess date "
+                        "instead of keeping them in the review folder.")
     p.add_argument("--png-is-photo", action="store_true",
                    help="Treat PNG files and files named Screenshot... like "
                         "any other photo instead of sending them to the "
@@ -342,15 +368,22 @@ def inspect_video(path):
         sha = content_hash(path)
     except OSError:
         return None
+    header = None
+    if os.path.splitext(path)[1].lower() in QUICKTIME_EXTS:
+        header = quicktime_creation_time(path)
     dt = date_from_filename(os.path.basename(path))
     dsrc = "filename"
-    if dt is None and os.path.splitext(path)[1].lower() in QUICKTIME_EXTS:
-        dt = quicktime_creation_time(path)
-        dsrc = "video-metadata"
+    if dt is None and header is not None:
+        dt, dsrc = header, "video-metadata"
     if dt is None:
         dt, dsrc = datetime.fromtimestamp(os.path.getmtime(longpath(path))), "file-date"
+    # A camera clip usually has both a filename timestamp and a header; the
+    # filename gives the nicer (local) time. Camera evidence needs both the
+    # header and a camera-style name; see CAMERA_VIDEO_NAMES.
+    camera = header is not None and bool(
+        CAMERA_VIDEO_NAMES.match(os.path.basename(path)))
     return {"kind": "video", "sha": sha, "dims": "", "date": dt,
-            "date_source": dsrc}
+            "date_source": dsrc, "camera_dated": camera}
 
 
 def inspect_file(path):
@@ -372,7 +405,8 @@ def inspect_image(path):
     except Exception:
         return None
     return {"kind": "image", "sha": sha, "dims": "%dx%d" % (w, hgt),
-            "date": dt, "date_source": dsrc}
+            "date": dt, "date_source": dsrc,
+            "camera_dated": dsrc in CAMERA_DATE_SOURCES}
 
 
 def unique_dest(folder, stem, ext, taken):
@@ -542,16 +576,23 @@ def main():
             # Where does it go?
             dt, dsrc = e["date"], e["date_source"]
             stem = dt.strftime("%Y%m%d_%H%M%S")
-            undated = dsrc == "file-date" and not args.mix_undated
+            undated = not e["camera_dated"] and not args.mix_undated
             screenshot = (e["kind"] == "image" and not args.png_is_photo
                           and is_screenshot(e["path"]))
             if screenshot or undated:
-                # Not a camera photo, or no real date: keep these out of the
-                # main timeline, but still sorted by month for browsing.
-                folder = os.path.join(output, args.review_folder,
+                # A screenshot, or nothing proves a camera dated it: keep
+                # these out of the main timeline, in a sub-folder per reason
+                # so each kind can be looked through on its own, still
+                # sorted by month.
+                if screenshot:
+                    bucket = "screenshots"
+                elif e["kind"] == "video":
+                    bucket = "videos"
+                else:
+                    bucket = "photos"
+                folder = os.path.join(output, args.review_folder, bucket,
                                       dt.strftime("%Y"), dt.strftime("%m"))
                 e["status"] = "copied"
-                bucket = "screenshots" if screenshot else "undated"
             else:
                 folder = os.path.join(output, dt.strftime("%Y"), dt.strftime("%m"))
                 e["status"] = "copied"
@@ -559,7 +600,7 @@ def main():
             e["dest"] = unique_dest(folder, stem, e["ext"], taken)
             date_str = dt.strftime("%Y-%m-%d %H:%M:%S") + " (%s)" % dsrc
             if copy(e):
-                stats[bucket] += 1
+                stats["videos_review" if bucket == "videos" else bucket] += 1
                 if e["kind"] == "video":
                     stats["videos"] += 1
             record(e, date_str)
@@ -568,8 +609,9 @@ def main():
     if done:
         print("  done in a previous run: %d" % (len(paths) - len(todo)))
     print("  copied:            %d" % stats["copied"])
-    print("  to %s/: %d screenshots, %d with no date"
-          % (args.review_folder, stats["screenshots"], stats["undated"]))
+    print("  to %s/: %d screenshots, %d photos and %d videos without a camera date"
+          % (args.review_folder, stats["screenshots"], stats["photos"],
+             stats["videos_review"]))
     print("  (videos among the above: %d)" % stats["videos"])
     print("  duplicates skipped:%d" % stats["duplicate"])
     print("  unreadable:        %d" % stats["errors"])
