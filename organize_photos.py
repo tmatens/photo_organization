@@ -17,11 +17,13 @@ What it does:
      kept in the main tree and the rest go to _duplicates/ for review.
   3. Sorts everything by the date the photo was taken (EXIF data) into
      YYYY/MM folders with clean filenames. Photos with no EXIF date at all
-     (screenshots, images received through messaging apps, downloads) are
-     dated from their filename when it carries one (IMG_20220314_100000,
-     Screenshot_20220314-100000, 2022-03-14 10.00.00); otherwise they go
-     into their own _review/YYYY/MM tree, dated by the file's modification
-     time, so guessed dates never mix with real ones.
+     (images received through messaging apps, downloads) are dated from
+     their filename when it carries one (IMG_20220314_100000,
+     2022-03-14 10.00.00); otherwise they go into a _review/YYYY/MM tree,
+     dated by the file's modification time, so guessed dates never mix
+     with real ones. Screenshots (any PNG, or a file named Screenshot...)
+     always go to _review, whatever date they carry: cameras never write
+     PNG, so a PNG is a screenshot, a meme or a graphic, not a photo.
   4. Optionally pulls out every photo that looks like an example image you
      provide (--example), e.g. all your music-app screenshots, into its own
      folder.
@@ -120,12 +122,16 @@ def parse_args():
                         "edits. The largest version of each group is kept; "
                         "the others are copied to _duplicates/. Off by "
                         "default: only byte-identical files are duplicates.")
-    p.add_argument("--undated-folder", default="_review", metavar="NAME",
-                   help="Folder for photos that have no EXIF date (default "
-                        "_review). They are sorted by file date inside it.")
+    p.add_argument("--review-folder", default="_review", metavar="NAME",
+                   help="Folder for screenshots and for photos with no date "
+                        "(default _review). Sorted by date inside it.")
     p.add_argument("--mix-undated", action="store_true",
                    help="File undated photos into the main YYYY/MM tree by "
                         "file date instead of keeping them separate.")
+    p.add_argument("--png-is-photo", action="store_true",
+                   help="Treat PNG files and files named Screenshot... like "
+                        "any other photo instead of sending them to the "
+                        "review folder.")
     p.add_argument("--keep-dupes", action="store_true",
                    help="Also copy byte-identical duplicates into _duplicates/ "
                         "instead of just listing them.")
@@ -223,6 +229,15 @@ FILENAME_DATE_PATTERNS = [
     re.compile(r"(?<!\d)((?:19|20)\d{2})(\d{2})(\d{2})[_-](\d{2})(\d{2})(\d{2})(?!\d{3}\d)"),
     re.compile(r"(?<!\d)((?:19|20)\d{2})-(\d{2})-(\d{2})[ _T](\d{2})[.:\-](\d{2})[.:\-](\d{2})"),
 ]
+
+
+def is_screenshot(path):
+    """Screenshots are never camera photos: cameras and phones write JPEG or
+    HEIC, so a PNG is a screenshot, a meme or a graphic. Samsung phones save
+    screenshots as JPEG but name them Screenshot_... ."""
+    name = os.path.basename(path).lower()
+    return (name.endswith(".png")
+            or name.startswith("screenshot") or name.startswith("screen shot"))
 
 
 def date_from_filename(name):
@@ -666,23 +681,28 @@ def main():
 
             stem = dt.strftime("%Y%m%d_%H%M%S")
             undated = dsrc == "file-date" and not args.mix_undated
+            screenshot = (e["kind"] == "image" and not args.png_is_photo
+                          and is_screenshot(e["path"]))
             if similar:
                 folder = os.path.join(output, args.similar_name,
                                       dt.strftime("%Y"), dt.strftime("%m"))
                 e["status"] = "matched-example"
-            elif undated:
-                # No real date: keep these out of the main timeline so a
-                # download date never masquerades as the day a photo was taken.
-                folder = os.path.join(output, args.undated_folder,
+                bucket = "matched"
+            elif screenshot or undated:
+                # Not a camera photo, or no real date: keep these out of the
+                # main timeline, but still sorted by month for browsing.
+                folder = os.path.join(output, args.review_folder,
                                       dt.strftime("%Y"), dt.strftime("%m"))
                 e["status"] = "copied"
+                bucket = "screenshots" if screenshot else "undated"
             else:
                 folder = os.path.join(output, dt.strftime("%Y"), dt.strftime("%m"))
                 e["status"] = "copied"
+                bucket = "copied"
             e["dest"] = unique_dest(folder, stem, e["ext"], taken)
             date_str = dt.strftime("%Y-%m-%d %H:%M:%S") + " (%s)" % dsrc
             if copy(e):
-                stats["matched" if similar else ("undated" if undated else "copied")] += 1
+                stats[bucket] += 1
                 if e["kind"] == "video":
                     stats["videos"] += 1
             record(e, date_str)
@@ -691,9 +711,8 @@ def main():
     if done:
         print("  done in a previous run: %d" % (len(paths) - len(todo)))
     print("  copied:            %d" % stats["copied"])
-    if not args.mix_undated:
-        print("  copied, no EXIF date: %d (in %s/, sorted by file date)"
-              % (stats["undated"], args.undated_folder))
+    print("  to %s/: %d screenshots, %d with no date"
+          % (args.review_folder, stats["screenshots"], stats["undated"]))
     print("  matched example:   %d" % stats["matched"])
     print("  (videos among the above: %d)" % stats["videos"])
     print("  duplicates skipped:%d" % stats["duplicate"])

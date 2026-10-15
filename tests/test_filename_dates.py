@@ -26,9 +26,9 @@ def test_numbers_that_are_not_dates_are_ignored():
         assert date_from_filename(name) is None, name
 
 
-def test_filename_date_rescues_a_screenshot_from_the_undated_folder(library):
+def test_filename_date_gives_an_undated_download_a_real_month(library):
     src, out = library
-    write_photo(src / "Screenshot_20220314-100000.jpg", seed=1)
+    write_photo(src / "IMG_20220314_100000.jpg", seed=1)        # no EXIF at all
     run_script("--source", src, "--output", out)
     row = read_manifest(out)[0]
     assert row["date_taken"] == "2022-03-14 10:00:00 (filename)"
