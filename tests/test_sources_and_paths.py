@@ -82,4 +82,5 @@ def test_photos_beyond_260_characters_are_found_and_copied(tmp_path):
     assert len(rows) == 1 and rows[0]["status"] == "copied"
     assert rows[0]["source_path"].endswith("IMG_20220314_100000.jpg")
     assert not rows[0]["source_path"].startswith("\\\\?\\")
-    assert (out / "2022" / "03" / "20220314_100000.jpg").is_file()
+    # Only a filename date, so it is sorted into the review folder.
+    assert (out / "_review" / "photos" / "2022" / "03" / "20220314_100000.jpg").is_file()
