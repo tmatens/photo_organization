@@ -5,6 +5,26 @@ describes the tool **as it was at that point**, so an older entry can
 describe behaviour that a newer entry above it has since changed. For what
 the tool does today, read `README.md`.
 
+## Double-click to run on Windows, and a plainer walkthrough
+
+A friend got stuck at "the Python command prompt": the old walkthrough
+said to install Python, and it was easy to open Python itself and type the
+commands into its `>>>` prompt, where none of them work. Two changes:
+
+- `Organize Photos.bat`, in the zip, does the whole job from a
+  double-click. It finds Python (or installs it with winget when it is
+  missing, so the "Add python.exe to PATH" box no longer matters), installs
+  what the tool needs, asks for the drive letters, runs the 500-file test,
+  opens its spreadsheet, and copies for real only after a `Y`. Drive
+  letters are put in capitals, so answering `e` one day and `E` the next
+  still resumes an interrupted run instead of scanning everything again.
+- The Windows walkthrough is rewritten for someone who has never used a
+  command line: one step per heading, a check after each, a warning about
+  the `>>>` window at the top, `python -m pip` instead of `pip`, and a
+  "Stuck?" list matching the messages people actually see.
+
+Nothing in the tools changed.
+
 ## README corrections
 
 The walkthrough's download step named an old version as its example and
