@@ -50,6 +50,14 @@ drive. If it is interrupted, double-click it again with the same answers
 and it carries on where it stopped. Step 9 below explains the folders it
 makes.
 
+**Screenshots of one app mixed in?** Afterwards, double-click
+`Sort Screenshots.bat` to pull them into their own folder, for example
+years of screenshots of songs in a music app. It opens an `examples`
+folder for you to copy one of those screenshots into, asks for the new
+drive's letter and a name for the folder, shows a preview, and moves them
+only after you type `Y`. Run it again for another app, or after adding an
+example of a look it missed.
+
 If the double-click way does not work, the walkthrough below does the
 same thing one command at a time.
 
@@ -197,7 +205,9 @@ Open `D:\Organized` in File Explorer:
 ### Step 10 (optional). Pull one app's screenshots into their own folder
 
 If `_review\screenshots\` is full of screenshots of one app, for example
-songs you captured to remember later:
+songs you captured to remember later. The easy way: double-click
+`Sort Screenshots.bat` in `C:\photo_organizer` and answer its questions.
+By hand:
 1. Make a folder `C:\photo_organizer\examples` and copy one of those
    screenshots into it. If the app's look changed over the years, add one
    of each look.
