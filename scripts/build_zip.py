@@ -8,8 +8,9 @@ import sys
 import zipfile
 from pathlib import Path
 
-FILES = ["Organize Photos.bat", "organize_photos.py", "sort_screenshots.py", "README.md",
-         "CHANGELOG.md", "requirements.txt", "requirements-optional.txt"]
+FILES = ["Organize Photos.bat", "Sort Screenshots.bat", "organize_photos.py",
+         "sort_screenshots.py", "README.md", "CHANGELOG.md", "requirements.txt",
+         "requirements-optional.txt"]
 
 
 def main(version):

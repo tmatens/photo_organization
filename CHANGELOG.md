@@ -5,6 +5,16 @@ describes the tool **as it was at that point**, so an older entry can
 describe behaviour that a newer entry above it has since changed. For what
 the tool does today, read `README.md`.
 
+## Double-click to sort one app's screenshots
+
+`Sort Screenshots.bat`, in the zip next to `Organize Photos.bat`, runs
+`sort_screenshots.py` without typing commands. It creates and opens an
+`examples` folder if there are no examples yet, asks for the new drive's
+letter (checking that `Organized\_review\screenshots` is there) and a
+name for the app's folder, runs the preview, and moves the matches only
+after a `Y`. Running it again checks only what is left. Nothing in the
+tools changed.
+
 ## Double-click to run on Windows, and a plainer walkthrough
 
 A friend got stuck at "the Python command prompt": the old walkthrough
