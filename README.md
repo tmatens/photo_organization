@@ -33,30 +33,38 @@ went.
 
 ## Easiest way on Windows: double-click
 
-1. **Download the tool** and extract it to `C:\photo_organizer`, exactly as
-   in step 2 of the walkthrough below.
-2. **Plug in** the old drives and the new one.
-3. In `C:\photo_organizer`, **double-click `Organize Photos.bat`**. If a
+1. **Download the tool** and extract it, as in step 2 of the walkthrough
+   below. Any folder on this computer works (not one of the old drives).
+2. **Plug in** the old drives and the new one, if your photos are on
+   drives.
+3. In the extracted folder, **double-click `Organize Photos.bat`**. If a
    blue box says "Windows protected your PC", click **More info**, then
    **Run anyway**.
-4. **Answer its questions** by typing and pressing Enter: the letters of
-   the old drives (for example `E F G`) and the letter of the new drive
-   (for example `D`). Open File Explorer and click **This PC** to see them.
+4. **Answer its questions.** For each, either type a drive letter (like
+   `E`) or drag a folder from File Explorer onto the window, then press
+   Enter. Open File Explorer and click **This PC** to see drive letters.
+   - **Old photos:** it asks one at a time, so you can add several drives
+     and folders. Press Enter on an empty line when that's all. A letter
+     means the whole drive; for photos on this computer's own `C:` drive,
+     drag the folder they are in (such as Pictures) rather than typing `C`.
+   - **Copy to:** a drive letter or a folder. The copy goes into a new
+     folder called `Organized` inside it, for example `D:\Organized`.
 
 It installs Python by itself if it is missing, runs a quick test that
 copies nothing, opens a spreadsheet of what it would do, and copies for
-real only after you type `Y`. Everything goes into `Organized` on the new
-drive. If it is interrupted, double-click it again with the same answers
-and it carries on where it stopped. Step 9 below explains the folders it
-makes.
+real only after you type `Y`. If it is interrupted, double-click it again
+with the same answers and it carries on where it stopped. Step 9 below
+explains the folders it makes.
 
 **Screenshots of one app mixed in?** Afterwards, double-click
 `Sort Screenshots.bat` to pull them into their own folder, for example
 years of screenshots of songs in a music app. It opens an `examples`
-folder for you to copy one of those screenshots into, asks for the new
-drive's letter and a name for the folder, shows a preview, and moves them
-only after you type `Y`. Run it again for another app, or after adding an
-example of a look it missed.
+folder for you to copy one of those screenshots into, asks where
+`Organized` is (a drive letter, or drag the `Organized` folder onto the
+window) and a name for the app's folder, shows a preview, and moves them
+only after you type `Y`. It only moves the copies inside `Organized`;
+your original photos are never touched. Run it again for another app, or
+after adding an example of a look it missed.
 
 If the double-click way does not work, the walkthrough below does the
 same thing one command at a time.
@@ -112,6 +120,10 @@ is which.
 The examples below use `E:`, `F:` and `G:` for the three old drives and
 `D:` for the new drive. **Change the letters in every command to match
 yours.**
+
+**Photos in a folder rather than filling a whole drive?** Wherever a
+command says `--source E:\`, you can give a folder instead, in quotes:
+`--source "C:\Users\Joel\Pictures"`. The same goes for `--output`.
 
 ### Step 4. Open PowerShell in the tool's folder
 

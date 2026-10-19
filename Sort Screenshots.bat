@@ -44,24 +44,29 @@ if errorlevel 1 (
     )
 )
 
+echo  Where is the Organized folder? Type the letter of the drive it is on
+echo  (like D), or drag the Organized folder onto this window. Then press
+echo  Enter.
+echo.
 :ask_output
-set "DEST="
-set /p "DEST= Letter of the NEW drive, where Organized is (for example: D): "
-if not defined DEST goto :ask_output
-set "DEST=!DEST::=!"
-set "DEST=!DEST:\=!"
-set "DEST=!DEST: =!"
-call :upper DEST
-if not exist "!DEST!:\" (
-    echo  There is no drive !DEST!: plugged in. Try again.
+set "ANSWER="
+set /p "ANSWER= Organized is on: "
+if not defined ANSWER goto :ask_output
+call :to_path ANSWER
+if not defined RESULT (
+    echo    That is not a drive or folder on this computer. Try again.
     goto :ask_output
 )
-set "OUT=!DEST!:\Organized"
+rem The Organized folder itself, or the drive or folder it is in.
+if "!RKIND!"=="drive" (set "OUT=!RDRIVE!:\Organized") else (set "OUT=!RESULT!")
+if not exist "!OUT!\_review\screenshots\" if exist "!OUT!\Organized\_review\screenshots\" set "OUT=!OUT!\Organized"
 if not exist "!OUT!\_review\screenshots\" (
-    echo  There is no !OUT!\_review\screenshots folder. Check the drive
-    echo  letter, or run Organize Photos.bat first.
+    echo    No Organized folder with screenshots in it there. Check the
+    echo    answer, or run Organize Photos.bat first.
     goto :ask_output
 )
+echo    Using !OUT!
+echo.
 
 :ask_name
 set "NAME="
@@ -98,6 +103,42 @@ echo  still in _review\screenshots is checked.
 :end
 echo.
 pause
+exit /b
+
+:to_path
+rem Turns an answer into a path. A letter, with or without : and \, is the
+rem whole drive (RESULT=E:\, RKIND=drive). Anything else is a folder, as
+rem typed or dragged in with quotes (RESULT without a trailing \,
+rem RKIND=folder). RDRIVE is the drive letter. RESULT is empty when the
+rem drive or folder does not exist.
+set "RESULT="
+set "RDRIVE="
+set "RKIND="
+set "P=!%1!"
+set "P=!P:"=!"
+:to_path_front
+if not defined P exit /b
+if "!P:~0,1!"==" " set "P=!P:~1!" & goto :to_path_front
+:to_path_back
+if not defined P exit /b
+if "!P:~-1!"==" " set "P=!P:~0,-1!" & goto :to_path_back
+set "D=!P::=!"
+set "D=!D:\=!"
+if "!P:~3!"=="" if defined D if "!D:~1!"=="" (
+    call :upper D
+    if not exist "!D!:\" exit /b
+    set "RESULT=!D!:\"
+    set "RDRIVE=!D!"
+    set "RKIND=drive"
+    exit /b
+)
+if "!P:~-1!"=="\" set "P=!P:~0,-1!"
+if not exist "!P!\" exit /b
+set "D=!P:~0,1!"
+call :upper D
+set "RESULT=!D!!P:~1!"
+set "RDRIVE=!D!"
+set "RKIND=folder"
 exit /b
 
 :upper

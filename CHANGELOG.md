@@ -5,6 +5,21 @@ describes the tool **as it was at that point**, so an older entry can
 describe behaviour that a newer entry above it has since changed. For what
 the tool does today, read `README.md`.
 
+## The double-click scripts take folders as well as drives
+
+`Organize Photos.bat` used to ask for whole drives only, which did not
+fit photos kept in a folder on the computer itself. Each answer can now
+be a drive letter or a folder dragged onto the window (Windows types its
+location in, quotes and all). Old photos are asked for one at a time, so
+drives and folders can be mixed; an empty answer ends the list. The copy
+still goes into a folder called `Organized`, now inside whichever drive
+or folder is chosen. Two warnings ask for a `Y` first: picking the whole
+of the computer's main drive (slow, and full of system pictures), and
+copying onto the same drive as some of the old photos (no protection if
+that drive fails). `Sort Screenshots.bat` accepts a drive letter, the
+`Organized` folder itself, or the folder it is in. Nothing in the tools
+changed.
+
 ## Double-click to sort one app's screenshots
 
 `Sort Screenshots.bat`, in the zip next to `Organize Photos.bat`, runs
