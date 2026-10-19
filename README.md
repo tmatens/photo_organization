@@ -31,107 +31,217 @@ went.
    their own folder, given an example screenshot. A separate script; see
    step 10 of the walkthrough.
 
-## Quick start on Windows: three old drives onto one new SSD
+## Easiest way on Windows: double-click
 
-This is the whole job, start to finish. Each step is one command.
+1. **Download the tool** and extract it to `C:\photo_organizer`, exactly as
+   in step 2 of the walkthrough below.
+2. **Plug in** the old drives and the new one.
+3. In `C:\photo_organizer`, **double-click `Organize Photos.bat`**. If a
+   blue box says "Windows protected your PC", click **More info**, then
+   **Run anyway**.
+4. **Answer its questions** by typing and pressing Enter: the letters of
+   the old drives (for example `E F G`) and the letter of the new drive
+   (for example `D`). Open File Explorer and click **This PC** to see them.
 
-1. **Install Python** from https://www.python.org/downloads/ . On the first
-   screen of the installer tick **"Add python.exe to PATH"**, then Install.
-2. **Download this tool.**
-   1. In a browser, open
-      https://github.com/tmatens/photo_organization/releases/latest
-   2. Scroll down to the **Assets** heading and click the file named
-      `photo_organizer-<version>.zip` (the version number changes; take
-      whichever is there).
-      Ignore the two "Source code" links; those are for programmers.
-   3. The browser saves it to your **Downloads** folder. Open Downloads in
-      File Explorer, right-click the zip file, and choose **Extract All...**
-   4. In the dialog that opens, delete the suggested location and type
-      `C:\photo_organizer` instead, then click **Extract**.
-   5. Check: `C:\photo_organizer` should now contain `organize_photos.py`,
-      `sort_screenshots.py`, `README.md`, `CHANGELOG.md`, `requirements.txt`
-      and `requirements-optional.txt` directly, not inside another folder. If you see a folder instead,
-      open it and use *that* folder's path wherever the steps below say
-      `C:\photo_organizer`.
-3. **Plug in the drives.** All three old drives and the new SSD. Note the
-   drive letters Windows gives them (open File Explorer and look under
-   "This PC"). The examples below use `E:`, `F:`, `G:` for the old drives and
-   `D:` for the new SSD; use yours.
-4. **Open PowerShell in the tool's folder:** in File Explorer, open
-   `C:\photo_organizer`, click in the address bar, type `powershell`, press
-   Enter.
-5. **Install what the tool needs** (once):
-   ```
-   pip install -r requirements.txt
-   pip install -r requirements-optional.txt
-   ```
-   The second line adds iPhone HEIC support. If it fails, skip it; the tool
-   will tell you at the end how many HEIC photos it could not include.
-6. **Quick sample first** (a few minutes). Nothing is copied. This looks
-   at 500 files spread evenly across all three drives and writes a
-   spreadsheet of what it would do with them:
-   ```
-   python organize_photos.py --source E:\ --source F:\ --source G:\ --output D:\Organized --dry-run --sample 500
-   ```
-   Open `D:\Organized\manifest_dryrun.csv` in Excel. If the pattern looks
-   right (camera photos under years and months, screenshots and odds and
-   ends under `_review`), continue. If not, this is the moment to ask.
-7. **Full preview.** Same, for every file:
-   ```
-   python organize_photos.py --source E:\ --source F:\ --source G:\ --output D:\Organized --dry-run
-   ```
-   This takes a while on big drives. When it finishes, open
-   `D:\Organized\manifest_dryrun.csv` in Excel and look at a few rows: the
-   `destination_path` column is where each file would go, `status` says
-   whether it would be copied or is a duplicate of something else, and
-   `date_taken` says where the date came from.
-8. **Run for real.** Same command without `--dry-run`:
-   ```
-   python organize_photos.py --source E:\ --source F:\ --source G:\ --output D:\Organized
-   ```
-   If it is interrupted, run the same command again; it continues where it
-   stopped.
+It installs Python by itself if it is missing, runs a quick test that
+copies nothing, opens a spreadsheet of what it would do, and copies for
+real only after you type `Y`. Everything goes into `Organized` on the new
+drive. If it is interrupted, double-click it again with the same answers
+and it carries on where it stopped. Step 9 below explains the folders it
+makes.
 
-   **Only one drive plugged in at a time?** Run it with just that drive, then
-   again later with the next one, always to the same `--output`:
+If the double-click way does not work, the walkthrough below does the
+same thing one command at a time.
+
+## Step by step on Windows: three old drives onto one new SSD
+
+No programming knowledge needed. You will copy and paste a few lines of
+text into a window and press Enter. Go one step at a time, and do the
+check at the end of each step before moving on.
+
+> **The most important thing to know:** every command below goes into a
+> **PowerShell** window that you open in step 4. You do **not** open
+> "Python" from the Start menu and type into it. If you ever see a window
+> whose line starts with `>>>`, that is the wrong place: type `exit()`,
+> press Enter, close it, and go to step 4.
+
+### Step 1. Install Python (once)
+
+Python is the free program that runs this tool. You install it once and
+then never open it yourself.
+
+1. Go to https://www.python.org/downloads/ and click the big yellow
+   **Download Python** button.
+2. Open the file it downloads (it is in your **Downloads** folder).
+3. If you see a window with a box that says **"Add python.exe to PATH"**,
+   **tick that box first**, then click **Install Now**. This box is the
+   step people most often miss.
+4. If instead a black window opens and asks questions, type `y` and press
+   Enter for each one.
+5. When it says it has finished, close the installer. Do not open Python.
+
+### Step 2. Download this tool
+
+1. Open https://github.com/tmatens/photo_organization/releases/latest
+2. Scroll down to **Assets** and click the file named
+   `photo_organizer-<version>.zip` (for example
+   `photo_organizer-1.5.1.zip`). Ignore the two "Source code" links.
+3. Open your **Downloads** folder, right-click that zip file, and choose
+   **Extract All...**
+4. In the box that appears, delete what is written there, type
+   `C:\photo_organizer`, and click **Extract**.
+
+**Check:** open `C:\photo_organizer` in File Explorer. You should see files
+called `organize_photos.py` and `requirements.txt` right there. If you see
+just one folder instead, open it: *that* is the folder to use in step 4.
+
+### Step 3. Plug in the drives
+
+Plug in all the old drives and the new one. Open File Explorer and click
+**This PC**. Each drive has a letter, like `E:`. Write down which letter
+is which.
+
+The examples below use `E:`, `F:` and `G:` for the three old drives and
+`D:` for the new drive. **Change the letters in every command to match
+yours.**
+
+### Step 4. Open PowerShell in the tool's folder
+
+1. In File Explorer, open `C:\photo_organizer`.
+2. Click once in the **address bar** at the top (where it says
+   `C:\photo_organizer`) so the text turns blue.
+3. Type `powershell` and press Enter.
+
+A blue or black window opens. Its last line ends in
+`C:\photo_organizer>` with a blinking cursor. This is where every command
+goes. To paste a command: copy it from this page, **right-click** inside
+the window (Ctrl+V also works), then press **Enter**.
+
+**Check:** paste this and press Enter:
+```
+python --version
+```
+It should answer with something like `Python 3.13.1`. If it does not,
+see "Stuck?" below before going on.
+
+### Step 5. Install what the tool needs (once)
+
+Paste each line, press Enter, and wait for it to finish:
+```
+python -m pip install -r requirements.txt
+python -m pip install -r requirements-optional.txt
+```
+Lots of text will scroll past. That is normal. The first line should end
+with `Successfully installed` (or `Requirement already satisfied`). The
+second line adds support for iPhone (HEIC) photos; if it shows red errors,
+skip it. The tool still works and tells you at the end how many iPhone
+photos it had to leave out.
+
+### Step 6. Quick test (a few minutes, copies nothing)
+
+```
+python organize_photos.py --source E:\ --source F:\ --source G:\ --output D:\Organized --dry-run --sample 500
+```
+This looks at 500 files spread across the drives and writes a
+spreadsheet of what it *would* do. When the cursor comes back, open
+`D:\Organized\manifest_dryrun.csv` in Excel. If camera photos are going
+into year and month folders, and screenshots and odds and ends into
+`_review`, carry on. If not, stop here and ask.
+
+### Step 7. Full preview (copies nothing)
+
+```
+python organize_photos.py --source E:\ --source F:\ --source G:\ --output D:\Organized --dry-run
+```
+This can take a long time on big drives. Leave the window open. When it
+is done, open `D:\Organized\manifest_dryrun.csv` in Excel again and look
+at a few rows: `destination_path` is where each file will go, `status`
+says whether it will be copied or is a duplicate, and `date_taken` says
+where the date came from.
+
+### Step 8. Do it for real
+
+The same command without `--dry-run`:
+```
+python organize_photos.py --source E:\ --source F:\ --source G:\ --output D:\Organized
+```
+This can take hours. Leave the window open and the computer awake. If it
+gets interrupted (closed window, restart, unplugged drive), open
+PowerShell again (step 4) and run the same command: it picks up where it
+stopped.
+
+**Only one old drive plugged in at a time?** Run it with just that drive,
+then later with the next one, always to the same `--output`:
+```
+python organize_photos.py --source E:\ --output D:\Organized
+python organize_photos.py --source F:\ --output D:\Organized
+```
+The tool remembers what it already copied, so a photo that is on both
+drives is copied only once.
+
+### Step 9. Look through the result
+
+Open `D:\Organized` in File Explorer:
+- `2019\`, `2020\`, ... — photos and videos with a camera date, by year
+  and month.
+- `_review\` — everything else, in three folders, each sorted by month:
+  - `_review\screenshots\` — screenshots. Mostly junk; skim and delete.
+  - `_review\photos\` — photos with no camera date: memes and downloads,
+    but also **real photos saved from Facebook, WhatsApp, texts and so
+    on**, because those apps remove the date. Worth a proper look.
+  - `_review\videos\` — videos that are not camera originals: re-sent
+    clips, screen recordings, downloads.
+- `manifest.csv` — a spreadsheet listing every file from the old drives
+  and where it went.
+
+### Step 10 (optional). Pull one app's screenshots into their own folder
+
+If `_review\screenshots\` is full of screenshots of one app, for example
+songs you captured to remember later:
+1. Make a folder `C:\photo_organizer\examples` and copy one of those
+   screenshots into it. If the app's look changed over the years, add one
+   of each look.
+2. In PowerShell (step 4), preview, then run:
    ```
-   python organize_photos.py --source E:\ --output D:\Organized
-   python organize_photos.py --source F:\ --output D:\Organized
+   python sort_screenshots.py --output D:\Organized --examples C:\photo_organizer\examples --name music --dry-run
+   python sort_screenshots.py --output D:\Organized --examples C:\photo_organizer\examples --name music
    ```
-   The tool remembers what it has already copied, so a photo on F: that was
-   already copied from E: is recognised and not copied twice.
-9. **Look through `D:\Organized`:**
-   - `2019\`, `2020\`, ... — photos and videos with a known date.
-   - `_review\` — everything that is not a camera-dated photo or video, in
-     three sub-folders so each can be gone through on its own:
-     - `_review\screenshots\` — anything that is a PNG or named
-       `Screenshot...`. Mostly junk; skim and delete by month.
-     - `_review\photos\` — photos with no camera date: memes, downloads,
-       and also **real photos saved from social media or messaging apps**,
-       which arrive with the camera's date stripped. Needs a proper look.
-     - `_review\videos\` — videos that are not camera originals: re-sent
-       copies, screen recordings, downloads. Large files; worth a separate
-       sitting.
-     All three are sorted by month inside.
-   - `manifest.csv` — one line per file on the old drives saying what
-     happened to it.
-10. **Pull one app's screenshots into their own folder** (optional). If
-    years of screenshots of one app are mixed into `_review\screenshots\`,
-    for example songs you captured to remember later:
-    1. Make a folder `C:\photo_organizer\examples` and copy one of those
-       screenshots into it. One is usually enough; if the app's look has
-       changed over the years, add one of each look.
-    2. Preview, then run:
-       ```
-       python sort_screenshots.py --output D:\Organized --examples C:\photo_organizer\examples --name music --dry-run
-       python sort_screenshots.py --output D:\Organized --examples C:\photo_organizer\examples --name music
-       ```
-    3. The matches move to `D:\Organized\_review\music\`, by month. Look at
-       what is left in `_review\screenshots\`; if any of the app's
-       screenshots were missed, copy one into the examples folder and run
-       again. Only the leftovers are checked each time.
-11. **Only when you are happy with the new drive**, wipe the old ones. The
-    tool never deletes anything; that last step is yours.
+3. The matches move to `D:\Organized\_review\music\`. If some were missed,
+   copy one of the missed ones into the examples folder and run again.
+
+### Step 11. Wipe the old drives, only when you are happy
+
+The tool never deletes anything. Once you have checked the new drive,
+clearing the old ones is up to you.
+
+### Stuck?
+
+- **The line starts with `>>>`, or you see `SyntaxError` or
+  `invalid syntax`.** You are typing into Python itself, not PowerShell.
+  Type `exit()`, press Enter, close that window, and open PowerShell the
+  way step 4 describes. You never need the `>>>` window.
+- **"python is not recognized", or typing `python` opens the Microsoft
+  Store.** Python is not installed, or the "Add python.exe to PATH" box
+  was not ticked. First try typing `py` instead of `python` in every
+  command (for example `py --version`, then
+  `py -m pip install -r requirements.txt`). If that does not work either,
+  close PowerShell, run the Python installer from step 1 again, choose
+  **Modify**, click Next, tick **Add Python to environment variables**,
+  click Install, and then open PowerShell again (step 4).
+- **"pip is not recognized".** Type the commands exactly as written
+  above, starting with `python -m pip`, not just `pip`.
+- **"Pillow is required".** Step 5 was skipped or did not finish. Do
+  step 5 again.
+- **"can't open file" or "No such file or directory".** PowerShell is not
+  in the tool's folder. The line before the cursor must end in
+  `C:\photo_organizer>`. Open PowerShell from that folder as in step 4.
+- **"Source folder not found".** A drive letter in the command is wrong
+  or the drive is unplugged. Check the letters under This PC (step 3).
+- **Nothing seems to happen.** On big drives it can work for a long time
+  before printing much. If the window looks frozen, press Enter once:
+  clicking inside a PowerShell window can pause it.
+- **Still stuck?** Take a photo or screenshot of the whole PowerShell
+  window and send it to whoever gave you this tool.
 
 ## Setup on a Mac, or by hand
 
