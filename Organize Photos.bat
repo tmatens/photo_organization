@@ -1,7 +1,8 @@
 @echo off
 rem Double-click this file to organize photos. It installs Python if it is
-rem missing, asks which drives to use, runs a quick test that copies
-rem nothing, and then, if you say yes, does the real copy.
+rem missing, asks where the photos are and where the copy goes (a drive
+rem letter or a folder dragged onto the window), runs a quick test that
+rem copies nothing, and then, if you say yes, does the real copy.
 setlocal EnableDelayedExpansion
 cd /d "%~dp0"
 title Photo Organizer
@@ -39,39 +40,82 @@ rem iPhone HEIC support is optional; the tool says at the end if it was needed.
 echo  Ready.
 echo.
 
-echo  Open File Explorer and click "This PC" to see the drive letters.
+echo  Where are the old photos?
+echo  Type a drive letter (like E), or drag a folder from File Explorer
+echo  onto this window. Then press Enter. To see drive letters, open File
+echo  Explorer and click "This PC".
 echo.
-:ask_sources
 set "SOURCES="
+set "SHOW="
+set "SDRIVES="
+set /a COUNT=0
+:ask_source
+set /a NEXT=COUNT+1
+set "ASK= Old photos #!NEXT!: "
+if !COUNT! gtr 0 set "ASK= Old photos #!NEXT! (or just press Enter if that's all): "
 set "ANSWER="
-set /p "ANSWER= Letters of the OLD drives, with spaces between (for example: E F G): "
-if not defined ANSWER goto :ask_sources
-set "ANSWER=!ANSWER::= !"
-set "ANSWER=!ANSWER:\= !"
-set "ANSWER=!ANSWER:,= !"
-call :upper ANSWER
-for %%d in (!ANSWER!) do (
-    if not exist "%%d:\" (
-        echo  There is no drive %%d: plugged in. Try again.
-        goto :ask_sources
-    )
-    set "SOURCES=!SOURCES! --source %%d:\"
+set /p "ANSWER=!ASK!"
+if not defined ANSWER (
+    if !COUNT! gtr 0 goto :sources_done
+    goto :ask_source
 )
+call :to_path ANSWER
+if not defined RESULT (
+    echo    That is not a drive or folder on this computer. Try again.
+    goto :ask_source
+)
+if "!RKIND!"=="drive" if /i "!RDRIVE!:"=="%SystemDrive%" (
+    echo.
+    echo    !RDRIVE!: is this computer's main drive. Scanning all of it is slow
+    echo    and picks up thousands of system pictures ^(icons, program images^).
+    echo    It is usually better to drag your Pictures folder here instead.
+    set "GO="
+    set /p "GO=   Type Y to use all of !RDRIVE!: anyway, or just press Enter to choose again: "
+    if /i not "!GO!"=="Y" goto :ask_source
+)
+if "!RKIND!"=="drive" (
+    set "SOURCES=!SOURCES! --source !RESULT!"
+    echo    Added: !RESULT!  ^(the whole drive^)
+) else (
+    set "SOURCES=!SOURCES! --source "!RESULT!""
+    echo    Added: !RESULT!
+)
+set "SHOW=!SHOW!   !RESULT!"
+set "SDRIVES=!SDRIVES! !RDRIVE!"
+set /a COUNT=NEXT
+goto :ask_source
+:sources_done
 
+echo.
+echo  Where should the organized copy go?
+echo  Type a drive letter (like D), or drag a folder onto this window.
+echo  A folder called Organized is made inside it.
+echo.
 :ask_output
-set "DEST="
-set /p "DEST= Letter of the NEW drive to copy to (for example: D): "
-if not defined DEST goto :ask_output
-set "DEST=!DEST::=!"
-set "DEST=!DEST:\=!"
-set "DEST=!DEST: =!"
-call :upper DEST
-if not exist "!DEST!:\" (
-    echo  There is no drive !DEST!: plugged in. Try again.
+set "ANSWER="
+set /p "ANSWER= Copy to: "
+if not defined ANSWER goto :ask_output
+call :to_path ANSWER
+if not defined RESULT (
+    echo    That is not a drive or folder on this computer. Try again.
     goto :ask_output
 )
-set "OUT=!DEST!:\Organized"
+if "!RKIND!"=="drive" (set "OUT=!RDRIVE!:\Organized") else (set "OUT=!RESULT!\Organized")
+set "SAME="
+for %%d in (!SDRIVES!) do if /i "%%d"=="!RDRIVE!" set "SAME=1"
+if defined SAME (
+    echo.
+    echo    That is the same drive as some of the old photos. It works, but
+    echo    if that drive fails, the photos and the copy are lost together.
+    set "GO="
+    set /p "GO=   Type Y to copy there anyway, or just press Enter to choose again: "
+    if /i not "!GO!"=="Y" goto :ask_output
+)
+echo    The copy will go into !OUT!
 
+echo.
+echo  Old photos:!SHOW!
+echo  Copy to:      !OUT!
 echo.
 echo  Step 1 of 2: a quick test on 500 files. Nothing is copied.
 echo.
@@ -102,6 +146,44 @@ if exist "!OUT!" start "" "!OUT!"
 :end
 echo.
 pause
+exit /b
+
+:to_path
+rem Turns an answer into a path. A letter, with or without : and \, is the
+rem whole drive (RESULT=E:\, RKIND=drive). Anything else is a folder, as
+rem typed or dragged in with quotes (RESULT without a trailing \,
+rem RKIND=folder). RDRIVE is the drive letter. RESULT is empty when the
+rem drive or folder does not exist.
+set "RESULT="
+set "RDRIVE="
+set "RKIND="
+set "P=!%1!"
+set "P=!P:"=!"
+:to_path_front
+if not defined P exit /b
+if "!P:~0,1!"==" " set "P=!P:~1!" & goto :to_path_front
+:to_path_back
+if not defined P exit /b
+if "!P:~-1!"==" " set "P=!P:~0,-1!" & goto :to_path_back
+set "D=!P::=!"
+set "D=!D:\=!"
+if "!P:~3!"=="" if defined D if "!D:~1!"=="" (
+    call :upper D
+    if not exist "!D!:\" exit /b
+    set "RESULT=!D!:\"
+    set "RDRIVE=!D!"
+    set "RKIND=drive"
+    exit /b
+)
+if "!P:~-1!"=="\" set "P=!P:~0,-1!"
+if not exist "!P!\" exit /b
+rem Drive letters in capitals, so "e:\photos" today and "E:\photos" next
+rem time are the same folder to the manifest and a rerun resumes.
+set "D=!P:~0,1!"
+call :upper D
+set "RESULT=!D!!P:~1!"
+set "RDRIVE=!D!"
+set "RKIND=folder"
 exit /b
 
 :upper
