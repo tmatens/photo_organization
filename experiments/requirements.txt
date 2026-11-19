@@ -6,3 +6,8 @@
 -r ../requirements-optional.txt
 # The Anthropic API client, used only by label_first_guess.py:
 anthropic==2.10.0
+# Runs the local CLIP model on the CPU (clip_local.py). Needs Python 3.11 or
+# newer; it brings numpy with it.
+onnxruntime==1.32.0
+# Turns a sentence into the token numbers the CLIP text model reads:
+tokenizers==0.23.3

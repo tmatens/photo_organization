@@ -44,3 +44,23 @@ jobs:
       - run: pytest -q
         env:
           REQUIRE_HEIF: "1"
+
+  experiments:
+    # The categorization experiment's own packages (docs/categorization-plan.md).
+    # Proves they install with pip alone on all three systems, and runs the
+    # tests that need them. No model file is downloaded.
+    name: Tests with the experiment packages (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - run: pip install -r requirements-dev.txt -r experiments/requirements.txt
+      - run: pytest -q
+        env:
+          REQUIRE_EXPERIMENT_DEPS: "1"
