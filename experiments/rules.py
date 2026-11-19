@@ -15,9 +15,12 @@ tuning half, and each is measured with evaluate.py before it stays. Until
 the labelled set exists the list is empty, and this candidate leaves every
 file undecided.
 
-Measure all rules together, then each one alone:
-  python experiments/evaluate.py --candidate rules --half tuning
-  python experiments/rules.py --half tuning
+There is one list of rules per field: how the file was made, and what it
+shows.
+
+Measure all rules of a field together, then each one alone:
+  python experiments/evaluate.py --candidate rules --field made --half tuning
+  python experiments/rules.py --field made --half tuning
 """
 import argparse
 import os
@@ -61,9 +64,11 @@ def decide(rules, file_facts):
 class RulesCandidate:
     """Plugs a list of rules into evaluate.py."""
 
-    def __init__(self, rules, name="rules"):
+    def __init__(self, rules, name="rules", field=None):
         self.rules = rules
         self.name = name
+        if field is not None:
+            self.field = field
         self.files_root = None
 
     def configure(self, eval_data):
@@ -95,9 +100,10 @@ class RulesCandidate:
 
 # Filled in from the tuning-half review. Each entry is measured before it
 # is kept, and its totals go in the plan.
-RULES = []
+RULES = {"made": [], "shows": []}
 
-CANDIDATE = RulesCandidate(RULES)
+MADE = RulesCandidate(RULES["made"], field="made")
+SHOWS = RulesCandidate(RULES["shows"], field="shows")
 
 
 def measure_each(rules, fact_rows, truth_by_id):
@@ -119,13 +125,15 @@ def measure_each(rules, fact_rows, truth_by_id):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description="Measure each rule alone on one half.")
+    p.add_argument("--field", choices=common.FIELDS, required=True,
+                   help="Which question's rules: how the file was made, or what it shows.")
     p.add_argument("--half", choices=("tuning",), default="tuning",
                    help="Single rules are only ever looked at on the tuning half.")
     p.add_argument("--eval-data", default=str(common.DEFAULT_EVAL_DATA))
     args = p.parse_args(argv)
-    rows, _unreviewed = evaluate.labelled_rows(args.eval_data, args.half)
+    rows, _unreviewed = evaluate.labelled_rows(args.eval_data, args.half, args.field)
     truth = {r["id"]: r["true_label"] for r in rows}
-    report = measure_each(RULES, facts_module.load(args.eval_data, args.half), truth)
+    report = measure_each(RULES[args.field], facts_module.load(args.eval_data, args.half), truth)
     if not report:
         print("No rules yet.")
     for line in report:

@@ -26,8 +26,55 @@ import organize_photos  # noqa: E402
 
 PHOTO_EXTS = organize_photos.IMAGE_EXTS | organize_photos.HEIC_EXTS
 
-# The starting list from docs/categorization-plan.md. The first labelling
-# pass may also answer "other"; the settled list replaces this one.
+# Every file is labelled twice, on two separate questions ("fields"), with
+# exactly one answer to each. Keeping them apart means a screen capture of a
+# receipt needs no rule about which label wins: it is a screen-capture on
+# the first question and a receipt on the second.
+FIELDS = ("made", "shows")
+FIELD_QUESTIONS = {"made": "How was the file made?", "shows": "What does the file show?"}
+FIELD_LABELS = {
+    "made": [
+        ("screen-capture", "A capture of a phone or computer screen, whatever its file type or name, "
+                           "cropped or not"),
+        ("saved-image", "An image made on a computer and saved as it is: a meme, a graphic, a logo, "
+                        "a product picture"),
+        ("paper-copy", "A scan or a camera picture of something on paper: a page, a card, a drawing, "
+                       "a printed photo"),
+        ("camera-photo", "Taken with a camera or a phone camera. The default, and by far the largest "
+                         "group"),
+    ],
+    "shows": [
+        ("text-messages", "A text or chat conversation between people. A comment thread under a "
+                          "social media post is not this"),
+        ("receipt", "Proof of a purchase or payment: a till receipt, an invoice, a bill, an order "
+                    "confirmation or a transaction, on paper or on a screen"),
+        ("document", "A letter, form, flyer, schedule, map, card or page of a PDF: something that is, "
+                     "or would be, a sheet of paper. An ordinary web page or email is not this"),
+        ("drawing", "A drawing, painting or handwriting made by hand, where the artwork fills the "
+                    "picture"),
+        ("meme-or-graphic", "A meme, a quote card, an infographic, a logo, an advert or another made "
+                            "image"),
+        ("thing", "A picture that records or shows a thing, with no person as the subject: an item "
+                  "for sale, damage or a repair, a product, a room, a sign"),
+        ("nothing-special", "None of the above: people, pets, places, events, food, or a screen that "
+                            "shows nothing listed here. The default, and the largest group"),
+    ],
+}
+# The label a field falls back to, and the one most files get.
+FIELD_DEFAULT = {"made": "camera-photo", "shows": "nothing-special"}
+# What to do when two labels of one field seem to fit. Written down before
+# labelling starts, as the plan requires.
+FIELD_TIE_RULE = {
+    "made": "Judge only how the file came to exist, never what is on it. A screen capture of a photo "
+            "is a screen-capture. A camera picture of a printed photo or of a page is a paper-copy. "
+            "A collage put together from camera photos is a camera-photo.",
+    "shows": "Judge only what is on it, never how it was made. When two labels fit, the one that "
+             "comes first in this order wins: text-messages, receipt, document, drawing, "
+             "meme-or-graphic, thing, nothing-special.",
+}
+
+# The list for the first look at a new sample, before the two fields are
+# settled. The first labelling pass may also answer "other".
 STARTING_CATEGORIES = [
     ("screenshot", "A capture of a phone or computer screen, whatever its file type or name"),
     ("receipt", "A till receipt, invoice or ticket, photographed or scanned"),
@@ -42,6 +89,14 @@ SAMPLE_COLUMNS = ["id", "source", "rel_path", "folder", "half", "camera_dated",
 # reviewed: "yes" when a person looked at the file, "no" when its guess was
 # accepted unseen (tuning half only), empty while it is still unconfirmed.
 LABEL_COLUMNS = ["id", "rel_path", "guessed_label", "confirmed_label", "reviewed"]
+
+
+def field_file(eval_data, field, *parts):
+    """The path eval_data/labels/<field>/parts...: where one field's list of
+    labels, guesses, confirmed labels and second opinion are kept."""
+    if field not in FIELDS:
+        raise ValueError("field must be one of %s, not %r" % (", ".join(FIELDS), field))
+    return inside(eval_data, "labels", field, *parts)
 
 
 def inside(eval_data, *parts):

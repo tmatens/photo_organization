@@ -16,9 +16,10 @@ It mirrors the two passes of label_first_guess.py:
              pictures alone. This model cannot describe a picture in its
              own words, so each group is named with the closest few entries
              of a long fixed list of kinds of picture (clip_local.KINDS).
-  --pass 2   Labels every file against the settled list in
-             eval_data/labels/categories.json and writes labels.csv for
-             review.py.
+  --pass 2   Labels every file against the settled list of one field
+             (--field made, or --field shows) in
+             eval_data/labels/<field>/categories.json and writes that
+             field's labels.csv for review.py.
 
 Each label in categories.json needs "descriptions": a few short sentences
 of the kind "a photo of a till receipt" that the model scores pictures
@@ -30,7 +31,8 @@ first guesses is recorded in eval_data/labels/first_guess.json.
 
 Usage:
   python experiments/label_local.py --pass 1
-  python experiments/label_local.py --pass 2
+  python experiments/label_local.py --pass 2 --field made
+  python experiments/label_local.py --pass 2 --field shows
 """
 import argparse
 import html
@@ -46,11 +48,13 @@ import label_first_guess  # noqa: E402
 PASS1_COLUMNS = ["id", "group", "label", "confidence"]
 
 
-def starting_categories():
-    """The starting list, with the descriptions this model scores against."""
-    categories = label_first_guess.starting_categories()
+def starting_categories(field=None):
+    """The starting list, for one field or for the first look, with the
+    descriptions this model scores against."""
+    categories = label_first_guess.starting_categories(field)
+    known = clip_local.STARTING_DESCRIPTIONS if field is None else clip_local.FIELD_DESCRIPTIONS
     for entry in categories["labels"]:
-        entry["descriptions"] = clip_local.STARTING_DESCRIPTIONS[entry["label"]]
+        entry["descriptions"] = known[entry["label"]]
     return categories
 
 
@@ -131,25 +135,22 @@ def run_pass1(args):
     kind_vectors = clip.embed_texts(["a " + kind for kind in clip_local.KINDS])
     names = clip_local.name_groups(vectors, groups, kind_vectors)
     page = write_tally_page(eval_data, out, {r["id"]: r for r in rows}, names)
-    categories = common.inside(eval_data, "labels", "categories.json")
-    if not categories.exists():
-        categories.write_text(json.dumps(starting_categories(), indent=2), encoding="utf-8")
     print("Thumbnail grids: %s" % page)
-    print('Settle the list of labels in %s and set "settled": true, then run --pass 2.' % categories)
+    label_first_guess.write_starting_lists(eval_data, starting_categories)
 
 
 def run_pass2(args):
-    eval_data = args.eval_data
-    categories = label_first_guess.load_categories(eval_data, 2)
+    eval_data, field = args.eval_data, args.field
+    categories = label_first_guess.load_categories(eval_data, 2, field)
     rows = common.load_sample(eval_data)
     clip = clip_local.Clip(eval_data)
     guesses = guess(clip, image_vectors(eval_data, clip, rows), categories)
     answers = {r["id"]: {"label": label, "error": ""} for r, (label, _c) in zip(rows, guesses)}
-    common.inside(eval_data, "labels", "first_guess.json").write_text(json.dumps({
+    common.field_file(eval_data, field, "first_guess.json").write_text(json.dumps({
         "first_guess_by": clip_local.ClipZeroShot.name,
         "note": "A local candidate made the first guesses, so its own score reads a little high.",
     }, indent=2), encoding="utf-8")
-    label_first_guess.write_labels(eval_data, answers)
+    label_first_guess.write_labels(eval_data, answers, field)
     counts = {}
     for label, _c in guesses:
         counts[label] = counts.get(label, 0) + 1
@@ -161,10 +162,14 @@ def main(argv=None):
     p = argparse.ArgumentParser(description="First-guess labels from a model on this computer. Uploads nothing.")
     p.add_argument("--pass", dest="pass_number", type=int, choices=(1, 2), required=True,
                    help="1: group similar files to settle the list. 2: label against the settled list.")
+    p.add_argument("--field", choices=common.FIELDS,
+                   help="Pass 2: which question to label: how the file was made, or what it shows.")
     p.add_argument("--groups", type=int, default=30,
                    help="Pass 1: how many groups of similar files to make.")
     p.add_argument("--eval-data", default=str(common.DEFAULT_EVAL_DATA))
     args = p.parse_args(argv)
+    if args.pass_number == 2 and not args.field:
+        p.error("--pass 2 needs --field made or --field shows")
     if not common.load_sample(args.eval_data):
         sys.exit("No sample yet. Run sample.py first.")
     (run_pass1 if args.pass_number == 1 else run_pass2)(args)

@@ -72,6 +72,35 @@ STARTING_DESCRIPTIONS = {
 }
 
 
+# The same for the labels of the two fields in common.FIELD_LABELS.
+FIELD_DESCRIPTIONS = {
+    "screen-capture": ["a screenshot of a phone screen", "a screenshot of a computer screen",
+                       "a screenshot of an app", "a screenshot of a web page"],
+    "saved-image": ["a meme with a caption", "a digital graphic or illustration", "a logo",
+                    "a product picture on a plain white background"],
+    "paper-copy": ["a scanned page", "a photo of a sheet of paper", "a photo of a printed photograph",
+                   "a photo of a drawing on paper"],
+    "camera-photo": ["a photo of people", "a photo of a place outdoors", "a photo of a room indoors",
+                     "a photo of food", "a photo of an animal", "a photo of an object"],
+    "text-messages": ["a screenshot of a text message conversation",
+                      "a screenshot of chat bubbles in a messaging app"],
+    "receipt": ["a photo of a till receipt", "a scanned invoice or bill",
+                "a screenshot of an order confirmation",
+                "a screenshot of a purchase or transaction on a phone"],
+    "document": ["a printed page of text", "a letter or a form", "a flyer or a schedule",
+                 "a page of a PDF"],
+    "drawing": ["a crayon or marker drawing on paper", "a hand-drawn picture",
+                "a painting made by hand", "handwriting on paper"],
+    "meme-or-graphic": ["a meme with a caption", "an infographic", "a logo", "an advertisement",
+                        "a quote on a plain background"],
+    "thing": ["a photo of something for sale", "a photo of damage or a repair",
+              "a photo of a product or its label", "a photo of an empty room", "a photo of a sign"],
+    "nothing-special": ["a photo of people", "a photo of a child", "a photo of a place outdoors",
+                        "a photo of an event", "a photo of food", "a photo of a pet",
+                        "a screenshot of an app", "a screenshot of a social media post"],
+}
+
+
 # Names for the groups of similar files that pass 1 of label_local.py finds.
 # CLIP cannot make up words, so it picks from this list: the names whose
 # numbers sit closest to a group. The list is deliberately much wider than
@@ -286,7 +315,8 @@ def descriptions_from(categories):
     A label without its own descriptions falls back to the starting ones."""
     texts, labels_of = [], []
     for entry in categories["labels"]:
-        for text in entry.get("descriptions") or STARTING_DESCRIPTIONS.get(entry["label"], []):
+        for text in (entry.get("descriptions") or FIELD_DESCRIPTIONS.get(entry["label"])
+                     or STARTING_DESCRIPTIONS.get(entry["label"], [])):
             texts.append(text)
             labels_of.append(entry["label"])
     missing = [e["label"] for e in categories["labels"] if e["label"] not in labels_of]
@@ -297,11 +327,13 @@ def descriptions_from(categories):
 
 
 class ClipZeroShot:
-    """Candidate 2 of the plan, for evaluate.py."""
+    """Candidate 2 of the plan, for evaluate.py. One per field: it scores
+    pictures against the descriptions in that field's settled list."""
 
     name = MODEL["name"] + "-zero-shot"
 
-    def __init__(self):
+    def __init__(self, field):
+        self.field = field
         self.eval_data = common.DEFAULT_EVAL_DATA
         self.loaded = None
 
@@ -311,7 +343,7 @@ class ClipZeroShot:
     def predict(self, paths):
         if self.loaded is None:
             clip = Clip(self.eval_data)
-            path = common.inside(self.eval_data, "labels", "categories.json")
+            path = common.field_file(self.eval_data, self.field, "categories.json")
             texts, labels_of = descriptions_from(json.loads(path.read_text(encoding="utf-8")))
             self.loaded = (clip, clip.embed_texts(texts), labels_of)
         clip, description_vectors, labels_of = self.loaded
@@ -319,4 +351,5 @@ class ClipZeroShot:
         return best_labels(share_rows, labels)
 
 
-CANDIDATE = ClipZeroShot()
+MADE = ClipZeroShot("made")
+SHOWS = ClipZeroShot("shows")

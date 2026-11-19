@@ -3,8 +3,9 @@
 fact_review.py: which facts separate each label from the rest.
 
 Step 2b of docs/categorization-plan.md, the part done per label. It reads
-the fact table of the tuning half and the confirmed labels and, for every
-label and every fact, charts that label against all the others and gives
+the fact table of the tuning half and the confirmed labels of one field
+(how the file was made, or what it shows) and, for every label and every
+fact, charts that label against all the others and gives
 a verdict:
 
   clean    one cut on this fact alone picks out most of the label and is
@@ -14,12 +15,12 @@ a verdict:
   too few  the label has fewer than 40 files in this half, so any cut that
            looks perfect may be luck; top the label up before judging it
 
-The verdicts and charts go to eval_data/facts/review.html and
+The verdicts and charts go to eval_data/facts/<field>/review.html and
 separation.csv. A person reads them and writes the rules in rules.py; this
 script suggests cuts but writes no rules itself.
 
 Usage:
-  python experiments/fact_review.py
+  python experiments/fact_review.py --field made
 """
 import argparse
 import html
@@ -181,9 +182,11 @@ def write_html(dest, results, counts):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description="Chart every fact against every label on the tuning half.")
+    p.add_argument("--field", choices=common.FIELDS, required=True,
+                   help="Which question: how the file was made, or what it shows.")
     p.add_argument("--eval-data", default=str(common.DEFAULT_EVAL_DATA))
     args = p.parse_args(argv)
-    rows, _unreviewed = evaluate.labelled_rows(args.eval_data, "tuning")
+    rows, _unreviewed = evaluate.labelled_rows(args.eval_data, "tuning", args.field)
     truth = {r["id"]: r["true_label"] for r in rows}
     if not truth:
         sys.exit("No confirmed labels for the tuning half yet. Run review.py first.")
@@ -191,11 +194,12 @@ def main(argv=None):
     counts = {}
     for label in truth.values():
         counts[label] = counts.get(label, 0) + 1
-    common.write_csv(common.inside(args.eval_data, "facts", "separation.csv"), SEPARATION_COLUMNS,
+    common.write_csv(common.inside(args.eval_data, "facts", args.field, "separation.csv"), SEPARATION_COLUMNS,
                      [dict(r, precision="" if r["precision"] is None else "%.3f" % r["precision"],
                            recall="%.3f" % r["recall"], ranking="%.3f" % r["ranking"])
                       for r in results])
-    dest = common.inside(args.eval_data, "facts", "review.html")
+    dest = common.inside(args.eval_data, "facts", args.field, "review.html")
+    dest.parent.mkdir(parents=True, exist_ok=True)
     write_html(dest, results, counts)
     for label in sorted(counts):
         clean = [r["fact"] for r in results if r["label"] == label and r["verdict"] == "clean"]

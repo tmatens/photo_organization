@@ -3,7 +3,9 @@
 review.py: confirm or correct the first-guess labels.
 
 Step 1 of docs/categorization-plan.md. The first guesses are not the answer
-key; a person confirms them. This opens a page in your browser, served from
+key; a person confirms them. Each file has two labels, one per question
+(--field made: how the file was made; --field shows: what it shows), and
+each question is reviewed in its own run. This opens a page in your browser, served from
 this computer only, showing one guessed label at a time as a grid of
 thumbnails. Click a picture that is wrong and pick its right label; then
 "Confirm this grid" records the picked labels for the ones you clicked and
@@ -15,27 +17,27 @@ script.
 
 In the final-check half every file is looked at. The tuning half may be
 reviewed more loosely: look at all of the small labels, spot-check the big
-`photo` pile with --spot-check, then accept the rest of that pile unseen
-with --accept-rest. Files accepted unseen are marked as such.
+default pile (camera-photo, or nothing-special) with --spot-check, then
+accept the rest of that pile unseen with --accept-rest. Files accepted unseen are marked as such.
 
-A second opinion makes the review shorter. If eval_data/labels/
+A second opinion makes the review shorter. If eval_data/labels/<field>/
 second_opinion.csv exists (columns id, label, look), it holds what another
 labeller said about each file. Each guessed label is then split into two
 piles: "disagree", where the second opinion gave a different label or
 either labeller was unsure (look = yes), and "agree". Do the disagree piles
 first, they are where the mistakes are. In the tuning half the agree piles
-can be spot-checked and accepted unseen like the photo pile. Two labellers
+can be spot-checked and accepted unseen like the default pile. Two labellers
 can agree and both be wrong, so the spot check is not optional: it is the
 only measure of how often that happens.
 
 --stats prints how often a guess was changed, per label and pile.
 
 Usage:
-  python experiments/review.py --half tuning
-  python experiments/review.py --half tuning --spot-check 60
-  python experiments/review.py --half tuning --accept-rest photo
-  python experiments/review.py --half tuning --accept-rest all
-  python experiments/review.py --stats
+  python experiments/review.py --field shows --half tuning
+  python experiments/review.py --field shows --half tuning --spot-check 60
+  python experiments/review.py --field shows --half tuning --accept-rest nothing-special
+  python experiments/review.py --field shows --half tuning --accept-rest all
+  python experiments/review.py --field shows --stats
 """
 import argparse
 import html
@@ -61,21 +63,21 @@ STATS_COLUMNS = ["guessed_label", "half", "pile", "guessed", "looked_at", "chang
                  "accepted_unseen", "not_reviewed"]
 
 
-def labels_file(eval_data):
-    return common.inside(eval_data, "labels", "labels.csv")
+def labels_file(eval_data, field):
+    return common.field_file(eval_data, field, "labels.csv")
 
 
-def load_labels(eval_data):
-    rows = common.read_csv(labels_file(eval_data))
+def load_labels(eval_data, field):
+    rows = common.read_csv(labels_file(eval_data, field))
     for row in rows:
         row.setdefault("reviewed", "")
     return rows
 
 
-def load_opinions(eval_data):
-    """{id: {"label", "look"}} from second_opinion.csv, or None when there
-    is no second opinion."""
-    path = common.inside(eval_data, "labels", "second_opinion.csv")
+def load_opinions(eval_data, field):
+    """{id: {"label", "look"}} from the field's second_opinion.csv, or None
+    when there is no second opinion."""
+    path = common.field_file(eval_data, field, "second_opinion.csv")
     if not path.exists():
         return None
     return {r["id"]: r for r in common.read_csv(path)}
@@ -200,8 +202,10 @@ document.getElementById('confirm').addEventListener('click', function () {
 class Review:
     """What the server needs to remember between requests."""
 
-    def __init__(self, eval_data, half, labels, spot_check, seed):
+    def __init__(self, eval_data, field, half, labels, spot_check, seed):
         self.eval_data = eval_data
+        self.field = field
+        self.default = common.FIELD_DEFAULT[field]
         self.half = half
         self.labels = labels
         self.spot_check = spot_check
@@ -209,21 +213,21 @@ class Review:
         self.token = secrets.token_urlsafe(16)
         self.sample = {r["id"]: r for r in common.load_sample(eval_data)}
         self.half_of = {i: r["half"] for i, r in self.sample.items()}
-        self.opinions = load_opinions(eval_data)
+        self.opinions = load_opinions(eval_data, field)
 
     def spot_for(self, label, pile):
-        """The spot check covers the photo pile, or every agree pile when
+        """The spot check covers the default pile, or every agree pile when
         there is a second opinion. A disagree pile is always shown whole."""
         if self.opinions is not None:
             return self.spot_check if pile == "agree" else None
-        return self.spot_check if label == "photo" else None
+        return self.spot_check if label == self.default else None
 
     def waiting(self, rows, label, pile=None):
         return waiting(rows, self.half_of, self.half, label, self.spot_for(label, pile), self.seed,
                        self.opinions, pile)
 
     def index_page(self):
-        rows = load_labels(self.eval_data)
+        rows = load_labels(self.eval_data, self.field)
         guessed = sorted({r["guessed_label"] for r in rows})
         if self.opinions is not None:
             return self.index_page_in_piles(rows, guessed)
@@ -234,9 +238,9 @@ class Review:
                         and self.half_of.get(r["id"]) == self.half)
             lines.append("<tr><td><a href='/grid?label=%s'>%s</a></td><td>%d</td><td>%d</td></tr>"
                          % (html.escape(label, quote=True), html.escape(label), total, left))
-        return ("<h1>Review: %s half</h1><table><tr><th>Guessed label</th><th>Files</th>"
+        return ("<h1>%s Review: %s half</h1><table><tr><th>Guessed label</th><th>Files</th>"
                 "<th>Still to confirm</th></tr>%s</table><p>Start with the small labels.</p>"
-                % (self.half, "".join(lines)))
+                % (html.escape(common.FIELD_QUESTIONS[self.field]), self.half, "".join(lines)))
 
     def index_page_in_piles(self, rows, guessed):
         lines = []
@@ -250,10 +254,10 @@ class Review:
                 cells.append("<td><a href='/grid?label=%s&pile=%s'>%d to confirm</a> of %d</td>"
                              % (html.escape(label, quote=True), pile, left, total))
             lines.append("<tr><td>%s</td>%s</tr>" % (html.escape(label), "".join(cells)))
-        return ("<h1>Review: %s half</h1><table><tr><th>Guessed label</th><th>Labellers disagree</th>"
+        return ("<h1>%s Review: %s half</h1><table><tr><th>Guessed label</th><th>Labellers disagree</th>"
                 "<th>Labellers agree</th></tr>%s</table><p>Do the disagree column first: that is "
                 "where the mistakes are. Each picture there shows what the second opinion said.</p>"
-                % (self.half, "".join(lines)))
+                % (html.escape(common.FIELD_QUESTIONS[self.field]), self.half, "".join(lines)))
 
     def options_for(self, label, preferred):
         """The <option> list for one picture: every label but the guessed
@@ -262,7 +266,7 @@ class Review:
                        for name in self.labels if name != label)
 
     def grid_page(self, label, pile=None):
-        rows = load_labels(self.eval_data)
+        rows = load_labels(self.eval_data, self.field)
         if self.opinions is None or pile not in PILES:
             pile = None
         left = self.waiting(rows, label, pile)
@@ -276,7 +280,7 @@ class Review:
             if pile == "disagree":
                 said = "<span class='other'>second opinion: %s</span>" % html.escape(
                     other if other != label else "same, but unsure")
-            preferred = other if other and other != label else "photo"
+            preferred = other if other and other != label else self.default
             cells.append("<div class='cell' data-id='%s'><img src='/thumb/%s'>%s"
                          "<a href='/big/%s' target='_blank'>larger</a><select>%s</select></div>"
                          % (row["id"], row["id"], said, row["id"], self.options_for(label, preferred)))
@@ -291,9 +295,9 @@ class Review:
     def confirm(self, body):
         if not secrets.compare_digest(str(body.get("token", "")), self.token):
             raise ValueError("wrong token")
-        rows = load_labels(self.eval_data)
+        rows = load_labels(self.eval_data, self.field)
         apply_grid(rows, body["shown"], body["corrections"], self.labels)
-        common.write_csv(labels_file(self.eval_data), LABEL_COLUMNS, rows)
+        common.write_csv(labels_file(self.eval_data, self.field), LABEL_COLUMNS, rows)
 
 
 def make_handler(review):
@@ -355,18 +359,20 @@ def make_handler(review):
     return Handler
 
 
-def settled_labels(eval_data):
-    path = common.inside(eval_data, "labels", "categories.json")
+def settled_labels(eval_data, field):
+    path = common.field_file(eval_data, field, "categories.json")
     if path.exists():
         return [c["label"] for c in json.loads(path.read_text(encoding="utf-8"))["labels"]]
-    return [label for label, _ in common.STARTING_CATEGORIES]
+    return [label for label, _ in common.FIELD_LABELS[field]]
 
 
 def parse_args(argv=None):
     p = argparse.ArgumentParser(description="Confirm or correct the first-guess labels in a browser.")
+    p.add_argument("--field", choices=common.FIELDS, required=True,
+                   help="Which question to review: how the file was made, or what it shows.")
     p.add_argument("--half", choices=("tuning", "final"), default="tuning")
     p.add_argument("--spot-check", type=int, default=None, metavar="N",
-                   help="Tuning half only: offer just N of the files guessed as photo, or N of "
+                   help="Tuning half only: offer just N of the files in the default pile, or N of "
                         "each agree pile when there is a second opinion.")
     p.add_argument("--accept-rest", metavar="LABEL",
                    help="Tuning half only: confirm unseen every remaining file guessed as LABEL "
@@ -381,14 +387,14 @@ def parse_args(argv=None):
 
 def main(argv=None):
     args = parse_args(argv)
-    rows = load_labels(args.eval_data)
+    rows = load_labels(args.eval_data, args.field)
     if not rows:
-        sys.exit("No first guesses yet. Run label_first_guess.py --pass 2 first.")
+        sys.exit("No first guesses for this field yet. Run pass 2 of a labeller with --field %s first." % args.field)
     half_of = {r["id"]: r["half"] for r in common.load_sample(args.eval_data)}
 
     if args.stats:
-        table = stats(rows, half_of, load_opinions(args.eval_data))
-        common.write_csv(common.inside(args.eval_data, "labels", "review_stats.csv"),
+        table = stats(rows, half_of, load_opinions(args.eval_data, args.field))
+        common.write_csv(common.field_file(args.eval_data, args.field, "review_stats.csv"),
                          STATS_COLUMNS, table)
         print("%-18s %-7s %-9s %7s %9s %8s %8s %12s" % ("guessed label", "half", "pile", "guessed",
                                                          "looked at", "changed", "unseen", "not reviewed"))
@@ -401,25 +407,26 @@ def main(argv=None):
     if args.spot_check is not None and args.half != "tuning":
         sys.exit("--spot-check is for the tuning half. Every final-check file is looked at.")
     if args.accept_rest:
-        opinions = load_opinions(args.eval_data)
+        opinions = load_opinions(args.eval_data, args.field)
         wanted = (sorted({r["guessed_label"] for r in rows}) if args.accept_rest == "all"
                   else [args.accept_rest])
         try:
             count = sum(accept_rest(rows, half_of, args.half, label, opinions) for label in wanted)
         except ValueError as error:
             sys.exit(str(error))
-        common.write_csv(labels_file(args.eval_data), LABEL_COLUMNS, rows)
+        common.write_csv(labels_file(args.eval_data, args.field), LABEL_COLUMNS, rows)
         print("Accepted %d files guessed as %s without looking%s."
               % (count, args.accept_rest, "" if opinions is None else ", all where the second opinion agrees"))
         return
 
     info = common.inside(args.eval_data, "sample_info.json")
     seed = json.loads(info.read_text(encoding="utf-8")).get("seed", 0) if info.exists() else 0
-    review = Review(args.eval_data, args.half, settled_labels(args.eval_data), args.spot_check, seed)
+    review = Review(args.eval_data, args.field, args.half, settled_labels(args.eval_data, args.field),
+                    args.spot_check, seed)
     server = HTTPServer(("127.0.0.1", args.port), make_handler(review))
     address = "http://127.0.0.1:%d/" % server.server_address[1]
-    print("Reviewing the %s half at %s  (Ctrl-C to stop; everything confirmed is saved)"
-          % (args.half, address))
+    print("Reviewing '%s' on the %s half at %s  (Ctrl-C to stop; everything confirmed is saved)"
+          % (args.field, args.half, address))
     if not args.no_browser:
         webbrowser.open(address)
     try:

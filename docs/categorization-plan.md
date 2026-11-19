@@ -59,9 +59,59 @@ gets reviewed. A sample this size shows that a rare kind of file exists;
 it does not hold enough of them to measure, so a new label is topped up to
 40 examples like any other.
 
-Every file gets exactly one label. When two apply (a screenshot of a
-receipt), the labelling guide in step 1 says which wins, and that rule is
-written down before labelling starts, not during it.
+### Two questions per file, not one label
+
+The first round of labelling showed that one label per file does not fit.
+A screen capture of a receipt is a screenshot and a receipt at once, and
+whichever rule picks the winner moves a large share of the screen captures
+from one label to another. The single list above mixed two questions: how
+the file was made, and what it shows. So each file is now labelled twice,
+with exactly one answer to each question.
+
+**How the file was made** (`made`):
+
+| Label | What counts |
+|---|---|
+| `screen-capture` | A capture of a phone or computer screen, whatever its file type or name, cropped or not |
+| `saved-image` | An image made on a computer and saved as it is: a meme, a graphic, a logo, a product picture |
+| `paper-copy` | A scan or a camera picture of something on paper: a page, a card, a drawing, a printed photo |
+| `camera-photo` | Taken with a camera or a phone camera. The default, and by far the largest group |
+
+**What the file shows** (`shows`):
+
+| Label | What counts |
+|---|---|
+| `text-messages` | A text or chat conversation between people. A comment thread under a social media post is not this |
+| `receipt` | Proof of a purchase or payment: a till receipt, an invoice, a bill, an order confirmation or a transaction, on paper or on a screen |
+| `document` | A letter, form, flyer, schedule, map, card or page of a PDF: something that is, or would be, a sheet of paper. An ordinary web page or email is not this |
+| `drawing` | A drawing, painting or handwriting made by hand, where the artwork fills the picture |
+| `meme-or-graphic` | A meme, a quote card, an infographic, a logo, an advert or another made image |
+| `thing` | A picture that records or shows a thing, with no person as the subject: an item for sale, damage or a repair, a product, a room, a sign |
+| `nothing-special` | None of the above: people, pets, places, events, food, or a screen that shows nothing listed here. The default, and the largest group |
+
+The old labels map onto these. A `screenshot` is a `screen-capture` that
+shows whatever it shows. A `photo-of-photo` is a `paper-copy` that shows
+`nothing-special`. A `photo` is a `camera-photo` that shows
+`nothing-special`.
+
+What this changes in the rest of the plan:
+
+- **No rule about which label wins.** Within one question a file still
+  gets exactly one answer, and the guide for that question says what to do
+  when two seem to fit. That guide is written down before labelling
+  starts, not during it. It is in `experiments/common.py`.
+- **Where a file is sorted to is a separate choice.** A sorter that puts
+  each file in one place needs an order of preference between the two
+  answers. That order belongs to the sorting step and can change without
+  anything being labelled again.
+- **Every step below runs once per question.** Wherever a later step says
+  "label", read it as a label of one of the two questions. The two halves,
+  the 40-example floor, the candidates and the bars of step 5 apply to each
+  question separately, and the results table gets a row per label of each.
+- **The two questions are expected to differ in how they can be answered.**
+  How a file was made is the kind of thing facts about the file may
+  decide. What it shows is where a model, or text that can be read, is
+  likelier to be needed. Measuring them apart shows that split directly.
 
 ## Step 1. Build a labelled set
 
