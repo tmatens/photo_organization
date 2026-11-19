@@ -1,0 +1,8 @@
+# Extra packages for the categorization experiment only. The tool itself
+# needs none of these; its base install stays Pillow alone.
+# Install with:  pip install -r requirements-dev.txt -r experiments/requirements.txt
+#
+# HEIC support, so sampled iPhone photos can be opened:
+-r ../requirements-optional.txt
+# The Anthropic API client, used only by label_first_guess.py:
+anthropic==2.10.0
