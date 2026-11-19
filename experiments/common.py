@@ -52,10 +52,12 @@ FIELD_LABELS = {
                      "or would be, a sheet of paper. An ordinary web page or email is not this"),
         ("drawing", "A drawing, painting or handwriting made by hand, where the artwork fills the "
                     "picture"),
+        ("product", "A product picture or a shop page saved from the web, with nothing bought: one "
+                    "item, or several put together in a collage"),
         ("meme-or-graphic", "A meme, a quote card, an infographic, a logo, an advert or another made "
                             "image"),
-        ("thing", "A picture that records or shows a thing, with no person as the subject: an item "
-                  "for sale, damage or a repair, a product, a room, a sign"),
+        ("thing", "Your own picture that records or shows a thing, with no person as the subject: "
+                  "an item for sale, damage or a repair, something you own, a room, a sign"),
         ("nothing-special", "None of the above: people, pets, places, events, food, or a screen that "
                             "shows nothing listed here. The default, and the largest group"),
     ],
@@ -70,7 +72,7 @@ FIELD_TIE_RULE = {
             "A collage put together from camera photos is a camera-photo.",
     "shows": "Judge only what is on it, never how it was made. When two labels fit, the one that "
              "comes first in this order wins: text-messages, receipt, document, drawing, "
-             "meme-or-graphic, thing, nothing-special.",
+             "product, meme-or-graphic, thing, nothing-special.",
 }
 
 # The list for the first look at a new sample, before the two fields are
