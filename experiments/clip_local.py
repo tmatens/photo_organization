@@ -72,6 +72,66 @@ STARTING_DESCRIPTIONS = {
 }
 
 
+# Names for the groups of similar files that pass 1 of label_local.py finds.
+# CLIP cannot make up words, so it picks from this list: the names whose
+# numbers sit closest to a group. The list is deliberately much wider than
+# the starting labels, so a kind of file nobody thought of can still show up
+# by name. Each is read as "a <kind>".
+KINDS = [
+    # screens
+    "screenshot of a text message conversation", "screenshot of a social media post",
+    "screenshot of a web page", "screenshot of a map", "screenshot of a video game",
+    "screenshot of a phone home screen", "screenshot of an email", "screenshot of a music player",
+    "screenshot of a video call", "screenshot of an online shop", "screenshot of a spreadsheet",
+    "screenshot of computer code", "screenshot of a calendar", "screenshot of a banking app",
+    # paper
+    "photo of a till receipt", "photo of an invoice or bill", "photo of an event ticket",
+    "photo of a printed letter", "photo of a filled-in form", "photo of a handwritten note",
+    "photo of a book page", "photo of a newspaper or magazine page", "photo of a whiteboard",
+    "photo of a restaurant menu", "photo of a recipe", "photo of a business card",
+    "photo of an identity card or passport", "photo of a medical document",
+    "photo of a school worksheet", "photo of a child's drawing", "photo of a sign or notice",
+    "photo of a product label or packaging", "photo of a price tag", "photo of a barcode or QR code",
+    "photo of a computer screen", "photo of a television screen", "presentation slide",
+    "scanned document",
+    # pictures of pictures
+    "photo of an old printed photograph", "photo of a photo album page",
+    "photo of a framed picture on a wall", "scan of an old photograph",
+    "black and white photograph", "school portrait", "photo of a painting or artwork",
+    # made on a computer
+    "meme with a caption", "cartoon or comic", "digital illustration", "poster or flyer",
+    "advertisement", "logo", "chart or graph", "diagram", "floor plan", "map", "infographic",
+    "greeting card", "invitation", "motivational quote on a background", "emoji or sticker",
+    "collage of several photos", "photo with a filter and text added", "wallpaper image",
+    "product photo on a white background", "stock photo",
+    # ordinary photos
+    "selfie", "portrait of one person", "group photo of people", "photo of a baby",
+    "photo of children playing", "photo of a family at home", "photo of a wedding",
+    "photo of a birthday party", "photo of a school event", "photo of a sports game",
+    "photo of a concert or show", "photo of a holiday celebration", "photo of a dog",
+    "photo of a cat", "photo of a wild animal", "photo of food on a plate", "photo of a drink",
+    "photo of a landscape", "photo of a beach", "photo of mountains", "photo of a sunset",
+    "photo of a city street", "photo of a building", "photo of a house", "photo of a garden",
+    "photo of flowers", "photo of snow", "photo of a car", "photo of a room indoors",
+    "photo of furniture", "photo of a toy", "photo of clothes", "photo of a tool or appliance",
+    "photo of damage or a repair", "photo of something for sale", "photo of a museum exhibit",
+    "photo taken from a plane or car window", "blurry or accidental photo", "very dark photo",
+]
+
+
+def name_groups(vectors, groups, kind_vectors, kinds=None, top=3):
+    """{group number: [the `top` kinds closest to that group's average
+    picture]}. A suggestion for a person to read, nothing more."""
+    kinds = kinds or KINDS
+    names = {}
+    for group in sorted(set(groups)):
+        members = vectors[[i for i, g in enumerate(groups) if g == group]]
+        centre = unit(members.mean(axis=0, keepdims=True))[0]
+        order = (kind_vectors @ centre).argsort()[::-1][:top]
+        names[group] = [kinds[i] for i in order]
+    return names
+
+
 def sha256_of(path):
     digest = hashlib.sha256()
     with open(path, "rb") as f:

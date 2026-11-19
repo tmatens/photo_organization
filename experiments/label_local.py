@@ -12,9 +12,10 @@ It mirrors the two passes of label_first_guess.py:
              the files into groups of similar-looking ones, and writes a
              page with a thumbnail grid per group, largest first, so a
              person can see what is in the library and settle the list of
-             labels. This model cannot describe a picture in words, so the
-             groups stand in for the hosted model's free descriptions. Each
-             group shows which starting labels the model would give.
+             labels. The grouping uses no labels at all: it comes from the
+             pictures alone. This model cannot describe a picture in its
+             own words, so each group is named with the closest few entries
+             of a long fixed list of kinds of picture (clip_local.KINDS).
   --pass 2   Labels every file against the settled list in
              eval_data/labels/categories.json and writes labels.csv for
              review.py.
@@ -87,23 +88,26 @@ def tally(rows):
     return sorted(groups.items(), key=lambda item: (-len(item[1]), item[0]))
 
 
-def write_tally_page(eval_data, rows, sample):
+def write_tally_page(eval_data, rows, sample, names):
     parts = ["<!doctype html><meta charset='utf-8'><title>What is in the sample</title><style>"
              "body{font:14px system-ui;margin:24px}img{height:150px;margin:2px;border-radius:3px}"
              "h2{margin-top:32px}small{color:#666;font-weight:400}</style>"
              "<h1>What is in the sample</h1><p>Groups of similar-looking files, largest first, "
-             "with the starting labels the local model would give them. Hover over a picture for "
-             "its guess. A group that is clearly one kind of thing, and is not on the list, is a "
-             "label to consider.</p>"]
-    print("%5s  %s" % ("files", "starting labels the model gave"))
+             "each with the names the local model finds closest to it. The names are picked "
+             "from a long fixed list, so read them as a hint and trust the pictures. A group "
+             "that is clearly one kind of thing, common enough to matter, and something you "
+             "would deal with as a group, is a label to consider. The starting labels the "
+             "model would give are shown in small print for comparison.</p>"]
+    print("%5s  %s" % ("files", "closest names (starting labels the model gave)"))
     for number, (group, members) in enumerate(tally(rows), 1):
         labels = {}
         for row in members:
             labels[row["label"]] = labels.get(row["label"], 0) + 1
         given = ", ".join("%s %d" % item for item in sorted(labels.items(), key=lambda i: -i[1]))
-        print("%5d  group %d: %s" % (len(members), number, given))
-        parts.append("<h2>Group %d <small>%d files: %s</small></h2>"
-                     % (number, len(members), html.escape(given)))
+        named = "; ".join(names.get(group, []))
+        print("%5d  group %d: %s  (%s)" % (len(members), number, named, given))
+        parts.append("<h2>Group %d: %s <small>%d files. Starting labels: %s</small></h2>"
+                     % (number, html.escape(named), len(members), html.escape(given)))
         for row in sorted(members, key=lambda r: r["label"]):
             if common.make_thumbnail(eval_data, sample[row["id"]]):
                 parts.append("<img loading='lazy' src='../thumbs/%s.jpg' title='%s %s'>"
@@ -124,7 +128,9 @@ def run_pass1(args):
     out = [{"id": r["id"], "group": g, "label": label, "confidence": "%.3f" % confidence}
            for r, g, (label, confidence) in zip(rows, groups, guesses)]
     common.write_csv(common.inside(eval_data, "labels", "local_pass1.csv"), PASS1_COLUMNS, out)
-    page = write_tally_page(eval_data, out, {r["id"]: r for r in rows})
+    kind_vectors = clip.embed_texts(["a " + kind for kind in clip_local.KINDS])
+    names = clip_local.name_groups(vectors, groups, kind_vectors)
+    page = write_tally_page(eval_data, out, {r["id"]: r for r in rows}, names)
     categories = common.inside(eval_data, "labels", "categories.json")
     if not categories.exists():
         categories.write_text(json.dumps(starting_categories(), indent=2), encoding="utf-8")

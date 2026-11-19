@@ -116,6 +116,18 @@ def test_similar_pictures_end_up_in_the_same_group_and_the_seed_fixes_the_result
     assert len(set(clip_local.group_similar(vectors[:3], 30, seed=3))) <= 3     # more groups than files
 
 
+@needs_numpy
+def test_a_group_is_named_after_the_kinds_closest_to_its_average_picture():
+    vectors = clip_local.unit(np.array([[1.0, 0.1, 0.0], [1.0, 0.0, 0.1], [0.0, 0.1, 1.0]]))
+    kind_vectors = clip_local.unit(np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]))
+    names = clip_local.name_groups(vectors, [0, 0, 1], kind_vectors, ["receipt", "map", "selfie"], top=2)
+    assert names[0][0] == "receipt" and names[1][0] == "selfie" and len(names[0]) == 2
+
+
+def test_the_list_of_kinds_is_wide_and_has_no_repeats():
+    assert len(clip_local.KINDS) > 80 and len(set(clip_local.KINDS)) == len(clip_local.KINDS)
+
+
 # --- the first-guess flow, with a stand-in model ------------------------------
 
 class FakeClip:
@@ -152,7 +164,8 @@ def test_local_first_guesses_run_in_two_passes_and_upload_nothing(tmp_path, caps
     label_local.main(["--pass", "1", "--groups", "2", "--eval-data", str(eval_data)])
     first = common.read_csv(eval_data / "labels" / "local_pass1.csv")
     assert len(first) == 6 and len({r["group"] for r in first}) == 2
-    assert (eval_data / "labels" / "local_pass1_tally.html").is_file()
+    page = (eval_data / "labels" / "local_pass1_tally.html").read_text()
+    assert "Group 1: " in page and "Group 2: " in page and "Group 3" not in page
     assert (eval_data / "embeddings" / "clip-vit-b32.npz").is_file()
     categories = eval_data / "labels" / "categories.json"
     assert json.loads(categories.read_text())["settled"] is False
