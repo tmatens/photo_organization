@@ -389,3 +389,45 @@ def test_the_review_page_serves_locally_and_saves_a_confirmed_grid(tmp_path, cap
         server.server_close()
     saved = {r["id"]: r for r in review.load_labels(eval_data)}
     assert saved[shown[0]]["confirmed_label"] == "document" and saved[shown[0]]["reviewed"] == "yes"
+
+
+def test_a_second_opinion_splits_each_label_into_disagree_and_agree_piles(tmp_path, capsys):
+    eval_data = sampled(tmp_path, count=8)
+    rows, half_of = guesses(eval_data)
+    for row in rows:
+        half_of[row["id"]] = "tuning"
+    photos = [r["id"] for r in rows if r["guessed_label"] == "photo"]
+    opinions = {i: {"id": i, "label": "photo", "look": ""} for i in photos}
+    opinions[photos[0]]["label"] = "receipt"        # the second opinion differs
+    opinions[photos[1]]["look"] = "yes"             # same label, but someone was unsure
+    del opinions[photos[2]]                         # no second opinion at all
+    assert review.pile_of(rows[0], None) == "all"
+
+    def pile(name, **more):
+        return [r["id"] for r in review.waiting(rows, half_of, "tuning", "photo", opinions=opinions,
+                                                pile=name, **more)]
+    assert sorted(pile("disagree")) == sorted(photos[:3])
+    assert sorted(pile("agree")) == sorted(photos[3:])
+
+    # Accepting the rest never takes a file the labellers disagree on.
+    assert review.accept_rest(rows, half_of, "tuning", "photo", opinions) == 3
+    assert sorted(pile("disagree")) == sorted(photos[:3]) and pile("agree") == []
+    review.apply_grid(rows, photos[:3], {photos[0]: "receipt"}, ["photo", "receipt"])
+    by_pile = {s["pile"]: s for s in review.stats(rows, half_of, opinions) if s["guessed_label"] == "photo"}
+    assert (by_pile["disagree"]["looked_at"], by_pile["disagree"]["changed"]) == (3, 1)
+    assert (by_pile["agree"]["accepted_unseen"], by_pile["agree"]["looked_at"]) == (3, 0)
+
+
+def test_the_review_page_shows_the_second_opinion_on_the_disagree_pile(tmp_path, capsys):
+    eval_data = sampled(tmp_path, count=4)
+    rows, _half_of = guesses(eval_data)
+    half = common.load_sample(eval_data)[0]["half"]
+    mine = [r for r in rows if r["guessed_label"] == "photo"]
+    common.write_csv(eval_data / "labels" / "second_opinion.csv", review.OPINION_COLUMNS,
+                     [{"id": r["id"], "label": "receipt", "look": ""} for r in mine])
+    session = review.Review(eval_data, half, ["document", "photo", "receipt"], None, 0)
+    assert "Labellers disagree" in session.index_page()
+    page = session.grid_page("photo", "disagree")
+    if any(session.half_of[r["id"]] == half for r in mine):
+        assert "second opinion: receipt" in page and "<option selected>receipt</option>" in page
+    assert "all confirmed" in session.grid_page("photo", "agree")
