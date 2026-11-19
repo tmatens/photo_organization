@@ -55,37 +55,40 @@ def ranking_score(mine, others):
     return (rank_sum - len(mine) * (len(mine) + 1) / 2) / (len(mine) * len(others))
 
 
-def best_number_cut(mine, others, min_precision=evaluate.MIN_PRECISION):
+def best_number_cut(mine, others, min_precision=evaluate.MIN_PRECISION, weight=1.0):
     """The single cut ('at least X' or 'at most X') that finds the most of
     this label while staying at min_precision. Returns (text, precision,
-    recall), or (None, None, 0.0) when no cut is that precise."""
+    recall), or (None, None, 0.0) when no cut is that precise. `weight` is
+    how much each of this label's files counts towards precision: less than
+    1 when the label was topped up (see evaluate.weights)."""
     best = (None, None, 0.0)
     for cut in sorted(set(mine)):
         for text, keep in (("at least %.4g" % cut, lambda v, c=cut: v >= c),
                            ("at most %.4g" % cut, lambda v, c=cut: v <= c)):
             hits = sum(1 for v in mine if keep(v))
             wrong = sum(1 for v in others if keep(v))
-            precision = hits / (hits + wrong)
+            precision = hits * weight / (hits * weight + wrong) if hits else 0.0
             recall = hits / len(mine)
             if precision >= min_precision and recall > best[2]:
                 best = (text, precision, recall)
     return best
 
 
-def best_value_cut(mine, others, min_precision=evaluate.MIN_PRECISION):
+def best_value_cut(mine, others, min_precision=evaluate.MIN_PRECISION, weight=1.0):
     """For a fact that is a word, not a number: the set of values that are
-    each precise enough for this label, taken together."""
+    each precise enough for this label, taken together. `weight` as in
+    best_number_cut."""
     good, hits, wrong = [], 0, 0
     for value in sorted(set(mine)):
         mine_n = sum(1 for v in mine if v == value)
         other_n = sum(1 for v in others if v == value)
-        if mine_n / (mine_n + other_n) >= min_precision:
+        if mine_n * weight / (mine_n * weight + other_n) >= min_precision:
             good.append(value or "(empty)")
             hits += mine_n
             wrong += other_n
     if not good:
         return None, None, 0.0
-    return "is " + " or ".join(good), hits / (hits + wrong), hits / len(mine)
+    return "is " + " or ".join(good), hits * weight / (hits * weight + wrong), hits / len(mine)
 
 
 def verdict(precision, recall, ranking, examples=MIN_EXAMPLES):
@@ -99,9 +102,12 @@ def verdict(precision, recall, ranking, examples=MIN_EXAMPLES):
     return "no"
 
 
-def review(fact_rows, truth_by_id):
-    """One dict per (label, fact) with the verdict and the best single cut."""
+def review(fact_rows, truth_by_id, topped_up=()):
+    """One dict per (label, fact) with the verdict and the best single cut.
+    topped_up is the set of ids that were added as top-ups."""
     rows = [r for r in fact_rows if r["id"] in truth_by_id]
+    weight = dict(zip([truth_by_id[r["id"]] for r in rows], evaluate.weights(
+        [truth_by_id[r["id"]] for r in rows], [r["id"] in topped_up for r in rows])))
     out = []
     for label in sorted(set(truth_by_id.values())):
         for fact in facts_module.FACT_COLUMNS[1:]:
@@ -111,10 +117,10 @@ def review(fact_rows, truth_by_id):
                 continue
             if facts_module.is_number(fact):
                 ranking = ranking_score(mine, others)
-                cut, precision, recall = best_number_cut(mine, others)
+                cut, precision, recall = best_number_cut(mine, others, weight=weight[label])
             else:
                 ranking = 0.5
-                cut, precision, recall = best_value_cut(mine, others)
+                cut, precision, recall = best_value_cut(mine, others, weight=weight[label])
             out.append({"label": label, "fact": fact, "best_cut": cut or "",
                         "precision": precision, "recall": recall, "ranking": ranking,
                         "verdict": verdict(precision, recall, ranking, len(mine)),
@@ -190,7 +196,8 @@ def main(argv=None):
     truth = {r["id"]: r["true_label"] for r in rows}
     if not truth:
         sys.exit("No confirmed labels for the tuning half yet. Run review.py first.")
-    results = review(facts_module.load(args.eval_data, "tuning"), truth)
+    results = review(facts_module.load(args.eval_data, "tuning"), truth,
+                     {r["id"] for r in rows if r.get("drawn") == "top-up"})
     counts = {}
     for label in truth.values():
         counts[label] = counts.get(label, 0) + 1

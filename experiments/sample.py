@@ -242,6 +242,7 @@ def main(argv=None):
         row["camera_dated"] = "yes" if details["camera_dated"] else "no"
         row["date_source"] = details["date_source"]
         row["bytes"] = path.stat().st_size
+        row["drawn"] = "evenly"
         kept.append(row)
 
     seed = args.seed if args.seed is not None else random.SystemRandom().randrange(10 ** 9)

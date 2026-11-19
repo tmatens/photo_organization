@@ -252,3 +252,36 @@ def test_each_field_keeps_its_own_labels_and_results(tmp_path, capsys):
     evaluate.main(["--candidate", "rules", "--field", "made", "--eval-data", str(eval_data)])
     assert (eval_data / "results" / "made" / "rules_tuning_summary.json").is_file()
     assert not (eval_data / "results" / "shows").exists()
+
+
+# --- top-ups ---------------------------------------------------------------
+
+def test_a_topped_up_label_counts_for_less_in_precision_but_not_in_recall():
+    # Two receipts were drawn evenly and six were added, among 10 photos.
+    truth = ["receipt"] * 8 + ["photo"] * 10
+    topped_up = [False] * 2 + [True] * 6 + [False] * 10
+    assert evaluate.weights(truth, topped_up) == [0.25] * 8 + [1.0] * 10
+    # The candidate finds every receipt and calls one photo a receipt.
+    answers = [("receipt", 0.9)] * 9 + [("photo", 0.9)] * 9
+    plain = by(evaluate.score(truth, answers, ["receipt"]), "receipt", 0.5)
+    fair = by(evaluate.score(truth, answers, ["receipt"], topped_up=topped_up), "receipt", 0.5)
+    assert plain["precision"] == pytest.approx(8 / 9)
+    assert fair["precision"] == pytest.approx(2 / 3)     # 2 real receipts to 1 mistake
+    assert fair["recall"] == plain["recall"] == 1.0
+    assert (fair["actual"], fair["topped_up"], fair["correct"], fair["labelled"]) == (8, 6, 8, 9)
+
+
+def test_a_label_found_only_by_topping_up_counts_as_one_file():
+    assert evaluate.weights(["receipt"] * 4 + ["photo"], [True] * 4 + [False]) == [0.25] * 4 + [1.0]
+
+
+def test_the_best_cut_and_single_rules_use_the_same_weight():
+    mine, others = [9, 9, 9, 9], [1, 1, 1, 9]
+    assert fact_review.best_number_cut(mine, others, min_precision=0.8)[0] == "at least 9"
+    assert fact_review.best_number_cut(mine, others, min_precision=0.8, weight=0.25)[0] is None
+    assert fact_review.best_value_cut(["png"] * 4, ["png", "jpg"], min_precision=0.8)[0] == "is png"
+    assert fact_review.best_value_cut(["png"] * 4, ["png", "jpg"], min_precision=0.8, weight=0.25)[0] is None
+    truth = {"a": "receipt", "b": "receipt", "c": "receipt", "d": "receipt", "e": "photo"}
+    rule = rules.Rule("every file is a receipt", "receipt", lambda row: True)
+    report = rules.measure_each([rule], [{"id": i} for i in truth], truth, topped_up={"b", "c", "d"})
+    assert report[0]["precision"] == pytest.approx(0.5) and report[0]["recall"] == 1.0
