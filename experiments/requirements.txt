@@ -1,0 +1,13 @@
+# Extra packages for the categorization experiment only. The tool itself
+# needs none of these; its base install stays Pillow alone.
+# Install with:  pip install -r requirements-dev.txt -r experiments/requirements.txt
+#
+# HEIC support, so sampled iPhone photos can be opened:
+-r ../requirements-optional.txt
+# The Anthropic API client, used only by label_first_guess.py:
+anthropic==2.10.0
+# Runs the local CLIP model on the CPU (clip_local.py). Needs Python 3.11 or
+# newer; it brings numpy with it.
+onnxruntime==1.32.0
+# Turns a sentence into the token numbers the CLIP text model reads:
+tokenizers==0.23.3
