@@ -7,6 +7,8 @@ photos: a set of rules, a model, or both. Every candidate plugs in the same
 way. It is an object with
 
     name                a short name, used in the result file names
+    field               which question it answers: "made" (how the file was
+                        made) or "shows" (what it shows)
     predict(paths)      given a list of image paths, returns one
                         (label, confidence) pair per path, in the same order
 
@@ -23,11 +25,13 @@ Two files are written into eval_data/results/: totals, and a per-file list
 of mistakes for a person to read. The mistakes name real files and stay in
 eval_data. Only totals go into the plan's results table.
 
-The final-check half is run once per candidate. A second run is refused.
+A module holds one candidate per field it can answer, named MADE and SHOWS.
+The final-check half is run once per candidate and field. A second run is
+refused.
 
 Usage:
-  python experiments/evaluate.py --candidate rules --half tuning
-  python experiments/evaluate.py --candidate rules --half final
+  python experiments/evaluate.py --candidate rules --field made --half tuning
+  python experiments/evaluate.py --candidate rules --field made --half final
 """
 import argparse
 import importlib
@@ -153,21 +157,28 @@ def installed_megabytes(packages, base=("pillow",)):
     return total / 1e6
 
 
-def load_candidate(spec):
+def load_candidate(spec, field):
     """'module' or 'module:attribute'. The module is looked up in this
-    folder; the attribute defaults to CANDIDATE."""
+    folder. Without an attribute, the module's candidate for this field is
+    used (MADE or SHOWS), or its CANDIDATE if it has just one."""
     module_name, _, attribute = spec.partition(":")
-    return getattr(importlib.import_module(module_name), attribute or "CANDIDATE")
+    module = importlib.import_module(module_name)
+    if not attribute:
+        attribute = field.upper() if hasattr(module, field.upper()) else "CANDIDATE"
+    candidate = getattr(module, attribute)
+    if getattr(candidate, "field", field) != field:
+        sys.exit("%s answers the '%s' question, not '%s'." % (spec, candidate.field, field))
+    return candidate
 
 
-def labelled_rows(eval_data, half):
-    """The sampled files of one half that a person has given a label, each
-    with its path on disk and that label. Unreviewed files are left out and
+def labelled_rows(eval_data, half, field):
+    """The sampled files of one half that a person has given a label for
+    one field, each with its path on disk and that label. Unreviewed files are left out and
     counted, never treated as if the first guess were right."""
     # In the final-check half only labels a person looked at count; a guess
     # accepted unseen is not an answer key.
     confirmed = {r["id"]: r["confirmed_label"] for r in
-                 common.read_csv(common.inside(eval_data, "labels", "labels.csv"))
+                 common.read_csv(common.field_file(eval_data, field, "labels.csv"))
                  if r.get("confirmed_label") and (half == "tuning" or r.get("reviewed") == "yes")}
     rows, unreviewed = [], 0
     for row in common.load_sample(eval_data):
@@ -229,6 +240,8 @@ def parse_args(argv=None):
     p = argparse.ArgumentParser(description="Measure one candidate against the labelled set.")
     p.add_argument("--candidate", required=True,
                    help="Module in experiments/ holding the candidate, as module or module:attribute.")
+    p.add_argument("--field", choices=common.FIELDS, required=True,
+                   help="Which question to measure: how the file was made, or what it shows.")
     p.add_argument("--half", choices=("tuning", "final"), default="tuning",
                    help="Which half to measure on. The final-check half runs once per candidate.")
     p.add_argument("--packages", nargs="*", default=[],
@@ -241,15 +254,15 @@ def parse_args(argv=None):
 
 def main(argv=None):
     args = parse_args(argv)
-    candidate = load_candidate(args.candidate)
+    candidate = load_candidate(args.candidate, args.field)
     if hasattr(candidate, "configure"):
         candidate.configure(args.eval_data)
     stem = "%s_%s" % (re.sub(r"[^A-Za-z0-9_-]+", "-", candidate.name), args.half)
-    summary_file = common.inside(args.eval_data, "results", stem + "_summary.json")
+    summary_file = common.inside(args.eval_data, "results", args.field, stem + "_summary.json")
     if args.half == "final" and summary_file.exists():
         sys.exit("%s has already had its one run on the final-check half." % candidate.name)
 
-    rows, unreviewed = labelled_rows(args.eval_data, args.half)
+    rows, unreviewed = labelled_rows(args.eval_data, args.half, args.field)
     if not rows:
         sys.exit("No confirmed labels for the %s half yet. Run review.py first." % args.half)
     if unreviewed:
@@ -259,9 +272,9 @@ def main(argv=None):
 
     totals, summary, mistakes = evaluate(candidate, rows, args.half,
                                          packages=args.packages, model_files=args.model_files)
-    common.write_csv(common.inside(args.eval_data, "results", stem + "_totals.csv"),
+    common.write_csv(common.inside(args.eval_data, "results", args.field, stem + "_totals.csv"),
                      TOTALS_COLUMNS, totals)
-    common.write_csv(common.inside(args.eval_data, "results", stem + "_mistakes.csv"),
+    common.write_csv(common.inside(args.eval_data, "results", args.field, stem + "_mistakes.csv"),
                      MISTAKE_COLUMNS, mistakes)
     summary_file.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print_report(totals, summary)

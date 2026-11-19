@@ -99,14 +99,14 @@ def labelled_set(tmp_path, labels):
         confirmed.append({"id": file_id, "rel_path": "album/%s.jpg" % file_id,
                           "guessed_label": label, "confirmed_label": label, "reviewed": "yes"})
     common.write_csv(eval_data / "sample.csv", common.SAMPLE_COLUMNS, sample)
-    common.write_csv(eval_data / "labels" / "labels.csv", common.LABEL_COLUMNS, confirmed)
+    common.write_csv(eval_data / "labels" / "shows" / "labels.csv", common.LABEL_COLUMNS, confirmed)
     return eval_data
 
 
 def test_evaluate_writes_totals_and_a_mistakes_list_inside_eval_data(tmp_path):
     eval_data = labelled_set(tmp_path, [("receipt", "tuning"), ("photo", "tuning"),
                                         ("photo", "final")])
-    rows, unreviewed = evaluate.labelled_rows(eval_data, "tuning")
+    rows, unreviewed = evaluate.labelled_rows(eval_data, "tuning", "shows")
     assert [r["true_label"] for r in rows] == ["receipt", "photo"] and unreviewed == 0
     totals, summary, mistakes = evaluate.evaluate(
         Fixed([("receipt", 0.9), ("receipt", 0.9)]), rows, "tuning")
@@ -119,27 +119,27 @@ def test_evaluate_writes_totals_and_a_mistakes_list_inside_eval_data(tmp_path):
 
 def test_unconfirmed_files_are_left_out_not_trusted(tmp_path):
     eval_data = labelled_set(tmp_path, [("receipt", "tuning"), ("photo", "tuning")])
-    rows = common.read_csv(eval_data / "labels" / "labels.csv")
+    rows = common.read_csv(eval_data / "labels" / "shows" / "labels.csv")
     rows[1]["confirmed_label"] = ""
-    common.write_csv(eval_data / "labels" / "labels.csv", common.LABEL_COLUMNS, rows)
-    kept, unreviewed = evaluate.labelled_rows(eval_data, "tuning")
+    common.write_csv(eval_data / "labels" / "shows" / "labels.csv", common.LABEL_COLUMNS, rows)
+    kept, unreviewed = evaluate.labelled_rows(eval_data, "tuning", "shows")
     assert len(kept) == 1 and unreviewed == 1
 
 
 def test_a_guess_accepted_unseen_does_not_count_in_the_final_check_half(tmp_path):
     eval_data = labelled_set(tmp_path, [("photo", "final"), ("photo", "final")])
-    rows = common.read_csv(eval_data / "labels" / "labels.csv")
+    rows = common.read_csv(eval_data / "labels" / "shows" / "labels.csv")
     rows[0]["reviewed"] = "no"
-    common.write_csv(eval_data / "labels" / "labels.csv", common.LABEL_COLUMNS, rows)
-    kept, unreviewed = evaluate.labelled_rows(eval_data, "final")
+    common.write_csv(eval_data / "labels" / "shows" / "labels.csv", common.LABEL_COLUMNS, rows)
+    kept, unreviewed = evaluate.labelled_rows(eval_data, "final", "shows")
     assert len(kept) == 1 and unreviewed == 1
 
 
 def test_the_final_check_half_runs_once_per_candidate(tmp_path, capsys):
     eval_data = labelled_set(tmp_path, [("photo", "final")])
-    argv = ["--candidate", "rules", "--half", "final", "--eval-data", str(eval_data)]
+    argv = ["--candidate", "rules", "--field", "shows", "--half", "final", "--eval-data", str(eval_data)]
     evaluate.main(argv)
-    assert json.loads((eval_data / "results" / "rules_final_summary.json").read_text())["files"] == 1
+    assert json.loads((eval_data / "results" / "shows" / "rules_final_summary.json").read_text())["files"] == 1
     with pytest.raises(SystemExit, match="already had its one run"):
         evaluate.main(argv)
 
@@ -184,7 +184,7 @@ def test_the_rules_candidate_plugs_into_the_harness(tmp_path):
         [rules.Rule("in a folder called album: photo", "photo",
                     lambda f: f["folder_depth"] == 1, confidence=0.96)], name="one-rule")
     candidate.configure(eval_data)
-    rows, _ = evaluate.labelled_rows(eval_data, "tuning")
+    rows, _ = evaluate.labelled_rows(eval_data, "tuning", "shows")
     totals, summary, mistakes = evaluate.evaluate(candidate, rows, "tuning")
     assert summary["left_undecided"] == 0 and mistakes == []
     assert summary["at_step5_precision"]["photo"]["recall"] == 1.0
@@ -228,3 +228,27 @@ def test_a_label_with_too_few_files_gets_no_verdict_however_good_a_cut_looks():
     assert results and all(r["verdict"] == "too few" for r in results)
     assert fact_review.verdict(1.0, 1.0, 1.0, examples=39) == "too few"
     assert fact_review.verdict(1.0, 1.0, 1.0, examples=40) == "clean"
+
+
+def test_a_candidate_is_picked_for_the_field_and_refused_for_the_other(tmp_path):
+    assert evaluate.load_candidate("rules", "made") is rules.MADE
+    assert evaluate.load_candidate("rules", "shows") is rules.SHOWS
+    assert rules.MADE.rules is rules.RULES["made"]
+    with pytest.raises(SystemExit, match="answers the 'made' question"):
+        evaluate.load_candidate("rules:MADE", "shows")
+    with pytest.raises(ValueError):
+        common.field_file(tmp_path / "eval_data", "colour", "labels.csv")
+
+
+def test_each_field_keeps_its_own_labels_and_results(tmp_path, capsys):
+    eval_data = labelled_set(tmp_path, [("receipt", "tuning"), ("nothing-special", "tuning")])
+    made = [dict(r, guessed_label="screen-capture", confirmed_label="screen-capture")
+            for r in common.read_csv(eval_data / "labels" / "shows" / "labels.csv")]
+    common.write_csv(eval_data / "labels" / "made" / "labels.csv", common.LABEL_COLUMNS, made)
+    assert {r["true_label"] for r in evaluate.labelled_rows(eval_data, "tuning", "made")[0]} == \
+        {"screen-capture"}
+    assert {r["true_label"] for r in evaluate.labelled_rows(eval_data, "tuning", "shows")[0]} == \
+        {"receipt", "nothing-special"}
+    evaluate.main(["--candidate", "rules", "--field", "made", "--eval-data", str(eval_data)])
+    assert (eval_data / "results" / "made" / "rules_tuning_summary.json").is_file()
+    assert not (eval_data / "results" / "shows").exists()

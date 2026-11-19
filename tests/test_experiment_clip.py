@@ -76,7 +76,11 @@ def test_every_starting_label_has_descriptions_and_a_label_without_any_is_refuse
     assert set(labels_of) == {label for label, _ in common.STARTING_CATEGORIES}
     assert len(texts) == len(labels_of)
     with pytest.raises(SystemExit, match="no descriptions"):
-        clip_local.descriptions_from({"labels": [{"label": "drawing", "what_counts": "x"}]})
+        clip_local.descriptions_from({"labels": [{"label": "made-up", "what_counts": "x"}]})
+    for field in common.FIELDS:                     # the two fields' own starting lists too
+        _texts, labels_of = clip_local.descriptions_from(label_local.starting_categories(field))
+        assert set(labels_of) == {label for label, _ in common.FIELD_LABELS[field]}
+        assert common.FIELD_DEFAULT[field] in labels_of
 
 
 # --- the arithmetic ------------------------------------------------------------
@@ -167,19 +171,23 @@ def test_local_first_guesses_run_in_two_passes_and_upload_nothing(tmp_path, caps
     page = (eval_data / "labels" / "local_pass1_tally.html").read_text()
     assert "Group 1: " in page and "Group 2: " in page and "Group 3" not in page
     assert (eval_data / "embeddings" / "clip-vit-b32.npz").is_file()
-    categories = eval_data / "labels" / "categories.json"
+    categories = eval_data / "labels" / "shows" / "categories.json"
     assert json.loads(categories.read_text())["settled"] is False
+    assert (eval_data / "labels" / "made" / "categories.json").is_file()   # one list per field
+    with pytest.raises(SystemExit):                 # pass 2 must be told which field
+        label_local.main(["--pass", "2", "--eval-data", str(eval_data)])
 
     with pytest.raises(SystemExit, match="not marked as settled"):
-        label_local.main(["--pass", "2", "--eval-data", str(eval_data)])
+        label_local.main(["--pass", "2", "--field", "shows", "--eval-data", str(eval_data)])
     categories.write_text(json.dumps({
         "settled": True, "when_two_apply": "receipt wins",
         "labels": [{"label": "receipt", "what_counts": "r", "descriptions": ["a till receipt"]},
                    {"label": "photo", "what_counts": "p", "descriptions": ["a photo"]}]}))
-    label_local.main(["--pass", "2", "--eval-data", str(eval_data)])
+    label_local.main(["--pass", "2", "--field", "shows", "--eval-data", str(eval_data)])
+    assert not (eval_data / "labels" / "made" / "labels.csv").exists()     # the other field is untouched
 
-    rows = common.read_csv(eval_data / "labels" / "labels.csv")
+    rows = common.read_csv(eval_data / "labels" / "shows" / "labels.csv")
     guessed = {os.path.basename(r["rel_path"])[:3]: r["guessed_label"] for r in rows}
     assert guessed == {"red": "receipt", "blu": "photo"}
     assert all(r["confirmed_label"] == "" for r in rows)
-    assert "zero-shot" in json.loads((eval_data / "labels" / "first_guess.json").read_text())["first_guess_by"]
+    assert "zero-shot" in json.loads((eval_data / "labels" / "shows" / "first_guess.json").read_text())["first_guess_by"]

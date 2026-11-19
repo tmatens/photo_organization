@@ -275,19 +275,22 @@ def test_files_already_answered_are_not_sent_again(tmp_path, capsys):
     common.write_csv(eval_data / "labels" / "pass1.csv", labeller.PASS1_COLUMNS,
                      [{"id": "s0001", "label": "photo", "error": ""},
                       {"id": "s0002", "label": "", "error": "errored"}])
-    assert [r["id"] for r in labeller.still_to_do(eval_data, 1)] == \
+    assert [r["id"] for r in labeller.still_to_do(eval_data, 1, None)] == \
         ["s0002", "s0003", "s0004", "s0005", "s0006"]
 
 
 def test_pass_two_waits_for_a_settled_list_of_labels(tmp_path, capsys):
     eval_data = sampled(tmp_path)
+    with pytest.raises(SystemExit):                 # pass 2 must be told which field
+        labeller.main(["--pass", "2", "--dry-run", "--eval-data", str(eval_data)])
+    argv = ["--pass", "2", "--field", "made", "--dry-run", "--eval-data", str(eval_data)]
     with pytest.raises(SystemExit, match="No settled list"):
-        labeller.main(["--pass", "2", "--dry-run", "--eval-data", str(eval_data)])
-    path = eval_data / "labels" / "categories.json"
-    path.parent.mkdir()
-    path.write_text(json.dumps(labeller.starting_categories()))
+        labeller.main(argv)
+    path = eval_data / "labels" / "made" / "categories.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(labeller.starting_categories("made")))
     with pytest.raises(SystemExit, match="not marked as settled"):
-        labeller.main(["--pass", "2", "--dry-run", "--eval-data", str(eval_data)])
+        labeller.main(argv)
 
 
 def test_tally_groups_similar_kinds_largest_first_and_writes_the_grids(tmp_path, capsys):
@@ -306,7 +309,10 @@ def test_tally_groups_similar_kinds_largest_first_and_writes_the_grids(tmp_path,
     page = (eval_data / "labels" / "pass1_tally.html").read_text()
     assert page.index("till receipt") < page.index("family photo")
     assert (eval_data / "thumbs" / "s0001.jpg").is_file()
-    assert json.loads((eval_data / "labels" / "categories.json").read_text())["settled"] is False
+    for field in common.FIELDS:
+        started = json.loads((eval_data / "labels" / field / "categories.json").read_text())
+        assert started["settled"] is False and started["when_two_apply"] == common.FIELD_TIE_RULE[field]
+        assert [c["label"] for c in started["labels"]][-1] == common.FIELD_DEFAULT[field]
 
 
 # --- review ----------------------------------------------------------------
@@ -315,7 +321,7 @@ def guesses(eval_data):
     sample_rows = common.load_sample(eval_data)
     rows = [{"id": r["id"], "rel_path": r["rel_path"], "confirmed_label": "", "reviewed": "",
              "guessed_label": "receipt" if i < 2 else "photo"} for i, r in enumerate(sample_rows)]
-    common.write_csv(eval_data / "labels" / "labels.csv", common.LABEL_COLUMNS, rows)
+    common.write_csv(eval_data / "labels" / "shows" / "labels.csv", common.LABEL_COLUMNS, rows)
     return rows, {r["id"]: r["half"] for r in sample_rows}
 
 
@@ -361,14 +367,14 @@ def test_spot_check_offers_the_same_files_each_time_and_the_rest_can_be_accepted
 def test_the_review_page_serves_locally_and_saves_a_confirmed_grid(tmp_path, capsys):
     eval_data = sampled(tmp_path, count=4)
     guesses(eval_data)
-    session = review.Review(eval_data, "tuning", ["document", "photo", "receipt"], None, 0)
+    session = review.Review(eval_data, "shows", "tuning", ["document", "photo", "receipt"], None, 0)
     server = HTTPServer(("127.0.0.1", 0), review.make_handler(session))
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     base = "http://127.0.0.1:%d" % server.server_address[1]
     try:
         page = urllib.request.urlopen(base + "/grid?label=receipt").read().decode()
-        shown = [r["id"] for r in review.waiting(review.load_labels(eval_data), session.half_of,
+        shown = [r["id"] for r in review.waiting(review.load_labels(eval_data, "shows"), session.half_of,
                                                  "tuning", "receipt")]
         assert shown and all("data-id='%s'" % i in page for i in shown)
         assert urllib.request.urlopen(base + "/thumb/" + shown[0]).read()[:2] == b"\xff\xd8"
@@ -387,7 +393,7 @@ def test_the_review_page_serves_locally_and_saves_a_confirmed_grid(tmp_path, cap
     finally:
         server.shutdown()
         server.server_close()
-    saved = {r["id"]: r for r in review.load_labels(eval_data)}
+    saved = {r["id"]: r for r in review.load_labels(eval_data, "shows")}
     assert saved[shown[0]]["confirmed_label"] == "document" and saved[shown[0]]["reviewed"] == "yes"
 
 
@@ -423,9 +429,9 @@ def test_the_review_page_shows_the_second_opinion_on_the_disagree_pile(tmp_path,
     rows, _half_of = guesses(eval_data)
     half = common.load_sample(eval_data)[0]["half"]
     mine = [r for r in rows if r["guessed_label"] == "photo"]
-    common.write_csv(eval_data / "labels" / "second_opinion.csv", review.OPINION_COLUMNS,
+    common.write_csv(eval_data / "labels" / "shows" / "second_opinion.csv", review.OPINION_COLUMNS,
                      [{"id": r["id"], "label": "receipt", "look": ""} for r in mine])
-    session = review.Review(eval_data, half, ["document", "photo", "receipt"], None, 0)
+    session = review.Review(eval_data, "shows", half, ["document", "photo", "receipt"], None, 0)
     assert "Labellers disagree" in session.index_page()
     page = session.grid_page("photo", "disagree")
     if any(session.half_of[r["id"]] == half for r in mine):

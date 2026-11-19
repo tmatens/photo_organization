@@ -69,7 +69,14 @@ DRAFT_TIE_RULE = ("When two labels fit, what the file IS wins over what it shows
                   "of a receipt is a photo-of-photo. Between receipt and document, a receipt wins.")
 
 
-def starting_categories():
+def starting_categories(field=None):
+    """The list of labels to start from: for one field, or, with no field,
+    the rough list the first look uses."""
+    if field is not None:
+        return {"settled": False, "question": common.FIELD_QUESTIONS[field],
+                "labels": [{"label": label, "what_counts": what}
+                           for label, what in common.FIELD_LABELS[field]],
+                "when_two_apply": common.FIELD_TIE_RULE[field]}
     return {"settled": False,
             "labels": [{"label": label, "what_counts": what}
                        for label, what in common.STARTING_CATEGORIES],
@@ -178,38 +185,46 @@ def read_answer(result, columns):
     return row
 
 
-def still_to_do(eval_data, pass_number, limit=None):
+def still_to_do(eval_data, pass_number, field, limit=None):
     """Sample rows with no answer yet for this pass."""
-    done = {r["id"] for r in common.read_csv(pass_file(eval_data, pass_number)) if not r["error"]}
+    done = {r["id"] for r in common.read_csv(pass_file(eval_data, pass_number, field)) if not r["error"]}
     rows = [r for r in common.load_sample(eval_data) if r["id"] not in done]
     return rows[:limit] if limit else rows
 
 
-def pass_file(eval_data, pass_number):
-    return common.inside(eval_data, "labels", "pass%d.csv" % pass_number)
+def answers_folder(eval_data, field):
+    """Pass 1 is one look at everything and has no field. Pass 2 is run once
+    per field and keeps its answers with that field."""
+    if field is None:
+        return common.inside(eval_data, "labels")
+    return common.field_file(eval_data, field)
 
 
-def state_file(eval_data, pass_number):
-    return common.inside(eval_data, "labels", "pass%d_batches.json" % pass_number)
+def pass_file(eval_data, pass_number, field):
+    return answers_folder(eval_data, field) / ("pass%d.csv" % pass_number)
 
 
-def load_state(eval_data, pass_number):
-    path = state_file(eval_data, pass_number)
+def state_file(eval_data, pass_number, field):
+    return answers_folder(eval_data, field) / ("pass%d_batches.json" % pass_number)
+
+
+def load_state(eval_data, pass_number, field):
+    path = state_file(eval_data, pass_number, field)
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {"batches": []}
 
 
-def save_state(eval_data, pass_number, state):
-    path = state_file(eval_data, pass_number)
+def save_state(eval_data, pass_number, state, field):
+    path = state_file(eval_data, pass_number, field)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(json.dumps(state, indent=2), encoding="utf-8")
     os.replace(tmp, path)
 
 
-def load_categories(eval_data, pass_number):
-    path = common.inside(eval_data, "labels", "categories.json")
+def load_categories(eval_data, pass_number, field=None):
     if pass_number == 1:
         return starting_categories()
+    path = common.field_file(eval_data, field, "categories.json")
     if not path.exists():
         sys.exit("No settled list of labels yet. Run --tally, then edit %s." % path)
     categories = json.loads(path.read_text(encoding="utf-8"))
@@ -239,10 +254,11 @@ def describe_run(rows, pass_number, model, max_edge, eval_data):
 
 def run_pass(args):
     eval_data, pass_number = args.eval_data, args.pass_number
-    categories = load_categories(eval_data, pass_number)
-    state = load_state(eval_data, pass_number)
+    field = args.field if pass_number == 2 else None
+    categories = load_categories(eval_data, pass_number, field)
+    state = load_state(eval_data, pass_number, field)
     waiting = {i for b in state["batches"] if not b["collected"] for i in b["ids"]}
-    rows = [r for r in still_to_do(eval_data, pass_number, args.limit) if r["id"] not in waiting]
+    rows = [r for r in still_to_do(eval_data, pass_number, field, args.limit) if r["id"] not in waiting]
 
     describe_run(rows, pass_number, args.model, args.max_edge, eval_data)
     if waiting:
@@ -266,11 +282,11 @@ def run_pass(args):
         batch = client.messages.batches.create(requests=chunk)
         state["batches"].append({"batch_id": batch.id, "collected": False,
                                  "ids": [r["custom_id"] for r in chunk]})
-        save_state(eval_data, pass_number, state)       # saved before the next one is sent
+        save_state(eval_data, pass_number, state, field)       # saved before the next one is sent
         print("  sent a batch of %d files" % len(chunk))
 
     columns = PASS1_COLUMNS if pass_number == 1 else PASS2_COLUMNS
-    answers = {r["id"]: r for r in common.read_csv(pass_file(eval_data, pass_number))}
+    answers = {r["id"]: r for r in common.read_csv(pass_file(eval_data, pass_number, field))}
     for entry in state["batches"]:
         if entry["collected"]:
             continue
@@ -280,23 +296,23 @@ def run_pass(args):
             time.sleep(30)
         for result in client.messages.batches.results(entry["batch_id"]):
             answers[result.custom_id] = read_answer(result, columns)
-        common.write_csv(pass_file(eval_data, pass_number), columns,
+        common.write_csv(pass_file(eval_data, pass_number, field), columns,
                          sorted(answers.values(), key=lambda r: r["id"]))
         entry["collected"] = True
-        save_state(eval_data, pass_number, state)
+        save_state(eval_data, pass_number, state, field)
 
     failed = sum(1 for r in answers.values() if r["error"])
     print("Pass %d: %d files answered, %d failed%s."
           % (pass_number, len(answers) - failed, failed,
              " (run again to retry them)" if failed else ""))
     if pass_number == 2:
-        write_labels(eval_data, answers)
+        write_labels(eval_data, answers, field)
 
 
-def write_labels(eval_data, answers):
-    """labels.csv: path, guessed label, confirmed label. Confirmed labels a
-    person has already given are kept."""
-    path = common.inside(eval_data, "labels", "labels.csv")
+def write_labels(eval_data, answers, field):
+    """One field's labels.csv: path, guessed label, confirmed label.
+    Confirmed labels a person has already given are kept."""
+    path = common.field_file(eval_data, field, "labels.csv")
     before = {r["id"]: r for r in common.read_csv(path)}
     rows = [{"id": r["id"], "rel_path": r["rel_path"],
              "guessed_label": answers[r["id"]]["label"],
@@ -354,7 +370,7 @@ def tally_groups(pass1_rows, merged=None):
 
 def run_tally(args):
     eval_data = args.eval_data
-    pass1 = common.read_csv(pass_file(eval_data, 1))
+    pass1 = common.read_csv(pass_file(eval_data, 1, None))
     if not pass1:
         sys.exit("Pass 1 has not been run yet.")
     merged = None
@@ -389,17 +405,28 @@ def run_tally(args):
                                                        quote=True)))
     page = common.inside(eval_data, "labels", "pass1_tally.html")
     page.write_text("".join(parts), encoding="utf-8")
-    categories = common.inside(eval_data, "labels", "categories.json")
-    if not categories.exists():
-        categories.write_text(json.dumps(starting_categories(), indent=2), encoding="utf-8")
     print("Thumbnail grids: %s" % page)
-    print('Settle the list of labels in %s and set "settled": true, then run --pass 2.' % categories)
+    write_starting_lists(eval_data, starting_categories)
+
+
+def write_starting_lists(eval_data, make):
+    """Put a starting list of labels in place for each field, unless one is
+    already there, and say what to do with them."""
+    for field in common.FIELDS:
+        path = common.field_file(eval_data, field, "categories.json")
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(make(field), indent=2), encoding="utf-8")
+        print('Settle the list for "%s" in %s and set "settled": true, then run --pass 2 --field %s.'
+              % (common.FIELD_QUESTIONS[field], path, field))
 
 
 def parse_args(argv=None):
     p = argparse.ArgumentParser(description="First-guess labels for the sampled files from a hosted model.")
     p.add_argument("--pass", dest="pass_number", type=int, choices=(1, 2),
                    help="1: free description and a first label. 2: label against the settled list.")
+    p.add_argument("--field", choices=common.FIELDS,
+                   help="Pass 2: which question to label: how the file was made, or what it shows.")
     p.add_argument("--tally", action="store_true",
                    help="Count pass 1's descriptions and write the thumbnail grids.")
     p.add_argument("--merge", action="store_true",
@@ -415,6 +442,8 @@ def parse_args(argv=None):
     args = p.parse_args(argv)
     if bool(args.pass_number) == args.tally:
         p.error("give exactly one of --pass 1, --pass 2 or --tally")
+    if args.pass_number == 2 and not args.field:
+        p.error("--pass 2 needs --field made or --field shows")
     return args
 
 
