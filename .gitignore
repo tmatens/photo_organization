@@ -7,3 +7,5 @@ venv/
 manifest.csv
 Organized/
 photo_organizer-*.zip
+# Labelled real photos for docs/categorization-plan.md. Never committed.
+eval_data/
