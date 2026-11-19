@@ -27,7 +27,7 @@ Python 3.11 or newer, so this file does not install on Python 3.10.
 | Tally | `python experiments/label_first_guess.py --tally --merge` | Counts the descriptions and writes thumbnail grids per group, to settle the list of labels in `eval_data/labels/categories.json`. |
 | First guess, pass 2 | `python experiments/label_first_guess.py --pass 2` | Labels every file against the settled list. |
 | First guess, locally | `python experiments/label_local.py --pass 1`, settle the list, then `--pass 2` | The same two steps with a small CLIP model on this computer instead. **Uploads nothing.** Pass 1 groups similar-looking files into thumbnail grids. The model files (about 600 MB) are downloaded once into `eval_data/models/` and checked against pinned hashes. |
-| Review | `python experiments/review.py --half tuning` | A local page: click the wrong ones, relabel them, confirm the rest of the grid. `--stats` shows how often a guess was changed. |
+| Review | `python experiments/review.py --half tuning` | A local page: click the wrong ones, relabel them, confirm the rest of the grid. `--stats` shows how often a guess was changed. If `eval_data/labels/second_opinion.csv` holds a second labeller's answers, each label is split into a disagree pile (do it first) and an agree pile (spot-check it, then `--accept-rest all` in the tuning half). |
 | Facts | `python experiments/facts.py --half tuning` | The table of facts that need no model. |
 | Fact review | `python experiments/fact_review.py` | Charts every fact against every label and says which separate it. |
 | Rules | edit `experiments/rules.py`, then `python experiments/rules.py` | Each rule measured alone. |
