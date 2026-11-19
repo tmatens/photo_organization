@@ -85,8 +85,9 @@ with exactly one answer to each question.
 | `receipt` | Proof of a purchase or payment: a till receipt, an invoice, a bill, an order confirmation or a transaction, on paper or on a screen |
 | `document` | A letter, form, flyer, schedule, map, card or page of a PDF: something that is, or would be, a sheet of paper. An ordinary web page or email is not this |
 | `drawing` | A drawing, painting or handwriting made by hand, where the artwork fills the picture |
+| `product` | A product picture or a shop page saved from the web, with nothing bought: one item, or several put together in a collage |
 | `meme-or-graphic` | A meme, a quote card, an infographic, a logo, an advert or another made image |
-| `thing` | A picture that records or shows a thing, with no person as the subject: an item for sale, damage or a repair, a product, a room, a sign |
+| `thing` | Your own picture that records or shows a thing, with no person as the subject: an item for sale, damage or a repair, something you own, a room, a sign |
 | `nothing-special` | None of the above: people, pets, places, events, food, or a screen that shows nothing listed here. The default, and the largest group |
 
 The old labels map onto these. A `screenshot` is a `screen-capture` that
