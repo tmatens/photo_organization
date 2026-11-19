@@ -11,6 +11,8 @@ a verdict:
            almost never wrong
   partly   the fact leans the right way but needs help from another
   no       the fact says nothing about this label
+  too few  the label has fewer than 40 files in this half, so any cut that
+           looks perfect may be luck; top the label up before judging it
 
 The verdicts and charts go to eval_data/facts/review.html and
 separation.csv. A person reads them and writes the rules in rules.py; this
@@ -29,6 +31,7 @@ import common  # noqa: E402
 import evaluate  # noqa: E402
 import facts as facts_module  # noqa: E402
 
+MIN_EXAMPLES = 40      # the plan's floor: below this a label's numbers mean little
 SEPARATION_COLUMNS = ["label", "fact", "verdict", "best_cut", "precision", "recall", "ranking"]
 BINS = 24
 
@@ -84,8 +87,10 @@ def best_value_cut(mine, others, min_precision=evaluate.MIN_PRECISION):
     return "is " + " or ".join(good), hits / (hits + wrong), hits / len(mine)
 
 
-def verdict(precision, recall, ranking):
-    """clean, partly or no. See the top of this file."""
+def verdict(precision, recall, ranking, examples=MIN_EXAMPLES):
+    """clean, partly, no or too few. See the top of this file."""
+    if examples < MIN_EXAMPLES:
+        return "too few"
     if precision is not None and recall >= evaluate.MIN_RECALL:
         return "clean"
     if (precision is not None and recall >= 0.15) or abs(ranking - 0.5) >= 0.3:
@@ -111,7 +116,7 @@ def review(fact_rows, truth_by_id):
                 cut, precision, recall = best_value_cut(mine, others)
             out.append({"label": label, "fact": fact, "best_cut": cut or "",
                         "precision": precision, "recall": recall, "ranking": ranking,
-                        "verdict": verdict(precision, recall, ranking),
+                        "verdict": verdict(precision, recall, ranking, len(mine)),
                         "mine": mine, "others": others})
     return out
 
@@ -154,7 +159,7 @@ def write_html(dest, results, counts):
     parts = ["<!doctype html><meta charset='utf-8'><title>Fact review</title><style>"
              "body{font:14px system-ui;margin:24px;max-width:1100px}"
              "td,th{padding:4px 10px;text-align:left;vertical-align:top;border-bottom:1px solid #ddd}"
-             ".clean{color:#087f5b;font-weight:600}.partly{color:#b35c00}.no{color:#999}"
+             ".clean{color:#087f5b;font-weight:600}.partly{color:#b35c00}.no,.too{color:#999}"
              ".names{font-size:11px;color:#666;max-width:300px}</style>"
              "<h1>Which facts separate each label</h1>"
              "<p>Orange bars: this label. Grey bars: every other file. Each is scaled to its own total.</p>"]
@@ -163,7 +168,8 @@ def write_html(dest, results, counts):
                      "<th>Best single cut</th><th>Right</th><th>Finds</th><th>Chart</th></tr>"
                      % (html.escape(label), counts[label]))
         mine = sorted((r for r in results if r["label"] == label),
-                      key=lambda r: ({"clean": 0, "partly": 1, "no": 2}[r["verdict"]], -r["recall"]))
+                      key=lambda r: ({"clean": 0, "partly": 1, "no": 2, "too few": 3}[r["verdict"]],
+                                     -r["recall"]))
         for r in mine:
             parts.append("<tr><td>%s</td><td class='%s'>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
                          % (r["fact"], r["verdict"], r["verdict"], html.escape(r["best_cut"]),
@@ -194,6 +200,9 @@ def main(argv=None):
     for label in sorted(counts):
         clean = [r["fact"] for r in results if r["label"] == label and r["verdict"] == "clean"]
         partly = [r["fact"] for r in results if r["label"] == label and r["verdict"] == "partly"]
+        if counts[label] < MIN_EXAMPLES:
+            print("%-18s %4d files  too few to judge (needs %d)" % (label, counts[label], MIN_EXAMPLES))
+            continue
         print("%-18s %4d files  clean: %s  | partly: %s"
               % (label, counts[label], ", ".join(clean) or "none", ", ".join(partly) or "none"))
     print("Charts: %s" % dest)

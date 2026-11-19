@@ -216,3 +216,15 @@ def test_verdicts():
     assert fact_review.verdict(0.97, 0.2, 0.6) == "partly"
     assert fact_review.verdict(None, 0.0, 0.85) == "partly"     # leans, but no precise cut
     assert fact_review.verdict(None, 0.0, 0.55) == "no"
+
+
+def test_a_label_with_too_few_files_gets_no_verdict_however_good_a_cut_looks():
+    columns = fact_review.facts_module.FACT_COLUMNS[1:]
+    facts = [dict({c: 1.0 for c in columns}, id="a"), dict({c: 0.0 for c in columns}, id="b")]
+    for c in columns:
+        if not fact_review.facts_module.is_number(c):
+            facts[0][c], facts[1][c] = "yes", "no"
+    results = fact_review.review(facts, {"a": "receipt", "b": "photo"})
+    assert results and all(r["verdict"] == "too few" for r in results)
+    assert fact_review.verdict(1.0, 1.0, 1.0, examples=39) == "too few"
+    assert fact_review.verdict(1.0, 1.0, 1.0, examples=40) == "clean"
