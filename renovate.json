@@ -1,0 +1,19 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    ":semanticCommitsDisabled"
+  ],
+  "description": "Keeps the pinned versions current: the Python packages in every requirements file (requirements.txt, requirements-dev.txt, requirements-optional.txt and experiments/requirements.txt) and the actions in .github/workflows. Renovate opens a pull request for each update and a person merges it; nothing merges by itself. A release must be three days old before it is offered, because a broken or compromised release is usually withdrawn within days. Updates are looked for once a week; security updates open at once. Not covered: the model files experiments/clip_local.py downloads. They are fixed to one revision and checked by SHA-256, and a different revision changes the measured results, so they are changed by hand together with a new measurement.",
+  "schedule": ["* 6-9 * * 1"],
+  "minimumReleaseAge": "3 days",
+  "osvVulnerabilityAlerts": true,
+  "packageRules": [
+    {
+      "description": "One pull request for all the actions, since they change together and CI checks them the same way.",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions"
+    }
+  ]
+}
