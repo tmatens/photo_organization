@@ -56,8 +56,8 @@ MIN_RECALL = 0.60
 MIN_IMAGES_PER_SECOND = 5.0
 MAX_EXTRA_INSTALL_MB = 500.0
 
-TOTALS_COLUMNS = ["candidate", "half", "label", "threshold", "actual", "labelled",
-                  "correct", "precision", "recall"]
+TOTALS_COLUMNS = ["candidate", "half", "label", "threshold", "actual", "topped_up",
+                  "labelled", "correct", "precision", "recall"]
 MISTAKE_COLUMNS = ["id", "rel_path", "true_label", "predicted_label", "confidence"]
 
 
@@ -78,24 +78,49 @@ def decided(prediction, threshold):
     return label if label is not None and confidence >= threshold else None
 
 
-def score(truth, predictions, labels, thresholds=THRESHOLDS):
+def weights(truth, topped_up):
+    """How much each file counts towards precision.
+
+    A label that was topped up (topup.py) is more common in the set than in
+    the library, so its right answers would outnumber the wrong ones by more
+    than they really do and precision would read too high. Every file of
+    such a label therefore counts for less: together they count as many as
+    the evenly drawn files of that label alone. A label with no evenly
+    drawn file at all counts as one file. Files of other labels count 1.
+    topped_up[i] is True for a file that was added as a top-up."""
+    total, even = {}, {}
+    for label, extra in zip(truth, topped_up):
+        total[label] = total.get(label, 0) + 1
+        even[label] = even.get(label, 0) + (0 if extra else 1)
+    return [max(even[label], 1) / total[label] if even[label] < total[label] else 1.0
+            for label in truth]
+
+
+def score(truth, predictions, labels, thresholds=THRESHOLDS, topped_up=None):
     """Precision and recall per label at each threshold.
 
     Returns one dict per (label, threshold). precision is None when the
     candidate gave nothing that label; recall is None when no file truly
     has it. Neither is reported as 0 or 1 in that case, because both would
-    be made-up numbers."""
+    be made-up numbers. `labelled` and `correct` are plain counts of files;
+    precision is worked out with weights(), so with top-ups in the set it
+    is lower than correct divided by labelled."""
+    topped_up = topped_up or [False] * len(truth)
+    weight = weights(truth, topped_up)
     rows = []
     for label in labels:
         actual = sum(1 for t in truth if t == label)
+        extra = sum(1 for t, e in zip(truth, topped_up) if t == label and e)
         for threshold in thresholds:
             given = [decided(p, threshold) == label for p in predictions]
             labelled = sum(given)
             correct = sum(1 for g, t in zip(given, truth) if g and t == label)
+            weighed = sum(w for g, w in zip(given, weight) if g)
+            right = sum(w for g, t, w in zip(given, truth, weight) if g and t == label)
             rows.append({
-                "label": label, "threshold": threshold, "actual": actual,
+                "label": label, "threshold": threshold, "actual": actual, "topped_up": extra,
                 "labelled": labelled, "correct": correct,
-                "precision": correct / labelled if labelled else None,
+                "precision": right / weighed if labelled else None,
                 "recall": correct / actual if actual else None,
             })
     return rows
@@ -199,12 +224,14 @@ def evaluate(candidate, rows, half, labels=None, packages=(), model_files=()):
     labels = labels or sorted(set(truth))
     predictions, speed = timed_predict(candidate, [r["path"] for r in rows])
     totals = [dict(r, candidate=candidate.name, half=half)
-              for r in score(truth, predictions, labels)]
+              for r in score(truth, predictions, labels,
+                             topped_up=[r.get("drawn") == "top-up" for r in rows])]
     summary = {
         "candidate": candidate.name, "half": half, "files": len(rows),
         "images_per_second": round(speed, 2),
         "extra_install_mb": round(installed_megabytes(packages), 1),
         "model_download_mb": round(sum(Path(f).stat().st_size for f in model_files) / 1e6, 1),
+        "topped_up": sum(1 for r in rows if r.get("drawn") == "top-up"),
         "left_undecided": sum(1 for p in predictions if p[0] is None),
         "confusion": [{"true_label": t, "labelled": p, "files": n}
                       for (t, p), n in sorted(confusion(truth, predictions).items())],
@@ -225,6 +252,8 @@ def print_report(totals, summary):
     print("%s on the %s half: %d files, %.1f images/s, %d left undecided"
           % (summary["candidate"], summary["half"], summary["files"],
              summary["images_per_second"], summary["left_undecided"]))
+    if summary.get("topped_up"):
+        print("  %d of the files are top-ups; they count for less in precision." % summary["topped_up"])
     print("  %-18s %6s  %s" % ("label", "files", "at the %d%% precision bar" % (100 * MIN_PRECISION)))
     for label, best in summary["at_step5_precision"].items():
         actual = next(r["actual"] for r in totals if r["label"] == label)

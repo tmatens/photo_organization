@@ -106,9 +106,14 @@ MADE = RulesCandidate(RULES["made"], field="made")
 SHOWS = RulesCandidate(RULES["shows"], field="shows")
 
 
-def measure_each(rules, fact_rows, truth_by_id):
+def measure_each(rules, fact_rows, truth_by_id, topped_up=()):
     """How many files each rule decides by itself and how often it is right.
-    Returns one dict per rule that gives a label."""
+    Returns one dict per rule that gives a label. topped_up is the set of
+    ids added as top-ups; they count for less in precision, as in
+    evaluate.weights."""
+    ids = list(truth_by_id)
+    weight = dict(zip(ids, evaluate.weights([truth_by_id[i] for i in ids],
+                                            [i in topped_up for i in ids])))
     report = []
     for rule in rules:
         if rule.label is None:
@@ -118,7 +123,9 @@ def measure_each(rules, fact_rows, truth_by_id):
         actual = sum(1 for label in truth_by_id.values() if label == rule.label)
         report.append({"sentence": rule.sentence, "label": rule.label, "decides": len(hits),
                        "right": right,
-                       "precision": right / len(hits) if hits else None,
+                       "precision": (sum(weight[row["id"]] for row in hits
+                                         if truth_by_id[row["id"]] == rule.label)
+                                     / sum(weight[row["id"]] for row in hits)) if hits else None,
                        "recall": right / actual if actual else None})
     return report
 
@@ -133,7 +140,8 @@ def main(argv=None):
     args = p.parse_args(argv)
     rows, _unreviewed = evaluate.labelled_rows(args.eval_data, args.half, args.field)
     truth = {r["id"]: r["true_label"] for r in rows}
-    report = measure_each(RULES[args.field], facts_module.load(args.eval_data, args.half), truth)
+    report = measure_each(RULES[args.field], facts_module.load(args.eval_data, args.half), truth,
+                          {r["id"] for r in rows if r.get("drawn") == "top-up"})
     if not report:
         print("No rules yet.")
     for line in report:

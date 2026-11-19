@@ -84,8 +84,11 @@ STARTING_CATEGORIES = [
     ("photo", "An ordinary photo. The default, and by far the largest group"),
 ]
 
+# drawn: "evenly" for a file of the evenly spread sample, "top-up" for one
+# added afterwards because its label was rare (topup.py). Empty in a sample
+# made before top-ups existed, which means "evenly".
 SAMPLE_COLUMNS = ["id", "source", "rel_path", "folder", "half", "camera_dated",
-                  "date_source", "bytes"]
+                  "date_source", "bytes", "drawn"]
 # reviewed: "yes" when a person looked at the file, "no" when its guess was
 # accepted unseen (tuning half only), empty while it is still unconfirmed.
 LABEL_COLUMNS = ["id", "rel_path", "guessed_label", "confirmed_label", "reviewed"]

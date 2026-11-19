@@ -23,6 +23,7 @@ import facts  # noqa: E402
 import label_first_guess as labeller  # noqa: E402
 import review  # noqa: E402
 import sample  # noqa: E402
+import topup  # noqa: E402
 
 
 def write_noisy_photo(path, seed, size=(640, 480)):
@@ -437,3 +438,95 @@ def test_the_review_page_shows_the_second_opinion_on_the_disagree_pile(tmp_path,
     if any(session.half_of[r["id"]] == half for r in mine):
         assert "second opinion: receipt" in page and "<option selected>receipt</option>" in page
     assert "all confirmed" in session.grid_page("photo", "agree")
+
+
+# --- top-up ----------------------------------------------------------------
+
+def sampled_with_a_pool(tmp_path):
+    """A sample of 16 of 32 files, with the rest of the undated source
+    fetched into the pool."""
+    undated, camera = two_sources(tmp_path)
+    eval_data = tmp_path / "eval_data"
+    sample.main(["--source", "undated=%s" % undated, "--source", "camera=%s" % camera,
+                 "--count", "16", "--seed", "7", "--eval-data", str(eval_data)])
+    topup.main(["fetch", "--source", "undated", "--eval-data", str(eval_data)])
+    return eval_data
+
+
+def test_fetch_copies_only_the_files_that_were_not_sampled_and_changes_no_source(tmp_path, capsys):
+    undated, _camera = two_sources(tmp_path)
+    (undated / "notes.txt").write_text("not a photo")
+    before = sha256_tree(undated)
+    eval_data = tmp_path / "eval_data"
+    sample.main(["--source", "undated=%s" % undated, "--source", "camera=%s" % (tmp_path / "camera"),
+                 "--count", "16", "--seed", "7", "--eval-data", str(eval_data)])
+    topup.main(["fetch", "--source", "undated", "--eval-data", str(eval_data)])
+    assert "4 files of 'undated' were not sampled; 4 are now in the pool." in capsys.readouterr().out
+
+    pool = topup.load_pool(eval_data)
+    drawn = {r["rel_path"] for r in common.load_sample(eval_data) if r["source"] == "undated"}
+    assert len(pool) == 4 and not drawn & {r["rel_path"] for r in pool}
+    assert all(topup.pool_file(eval_data, r).is_file() for r in pool)
+    assert sha256_tree(undated) == before
+
+    # A second run keeps the same list and copies back only what is missing.
+    topup.pool_file(eval_data, pool[0]).unlink()
+    topup.main(["fetch", "--source", "undated", "--eval-data", str(eval_data)])
+    assert topup.load_pool(eval_data) == pool
+    assert topup.pool_file(eval_data, pool[0]).is_file()
+    with pytest.raises(SystemExit, match="no source named"):
+        topup.main(["fetch", "--source", "elsewhere", "--eval-data", str(eval_data)])
+
+
+def test_a_file_is_picked_by_the_model_or_by_a_fact_and_the_reason_is_kept():
+    pool = [{"id": "p1"}, {"id": "p2"}, {"id": "p3"}, {"id": "p4"}]
+    labels = ["receipt", "text-messages", "nothing-special"]
+    shares = [[0.05, 0.02, 0.93],       # neither net
+              [0.06, 0.06, 0.88],       # the two wanted labels together reach the share
+              [0.00, 0.01, 0.99],       # only the fact
+              [0.70, 0.10, 0.20]]       # both
+    fact_rows = [{"type": "jpg"}, {"type": "jpg"}, {"type": "png"}, {"type": "png"}]
+    picks = topup.choose(pool, labels, shares, ["receipt", "text-messages"], fact_rows,
+                         topup.parse_also(["type=png"]), min_share=0.10)
+    assert [(p["id"], p["why"], p["model_label"]) for p in picks] == [
+        ("p4", "model+facts", "receipt"), ("p2", "model", "nothing-special"),
+        ("p3", "facts", "nothing-special")]
+    with pytest.raises(SystemExit, match="FACT=VALUE"):
+        topup.parse_also(["colour=blue"])
+
+
+def test_confirmed_picks_join_the_sample_as_top_ups_shared_between_the_halves(tmp_path, capsys):
+    eval_data = sampled_with_a_pool(tmp_path)
+    for field in common.FIELDS:
+        common.write_csv(common.field_file(eval_data, field, "labels.csv"), common.LABEL_COLUMNS,
+                         [{"id": r["id"], "rel_path": r["rel_path"],
+                           "guessed_label": common.FIELD_DEFAULT[field]}
+                          for r in common.load_sample(eval_data)])
+    pool = topup.load_pool(eval_data)
+    common.write_csv(eval_data / "topup" / "answers.csv", topup.ANSWER_COLUMNS, [
+        {"id": pool[0]["id"], "made": "screen-capture", "shows": "receipt"},
+        {"id": pool[1]["id"], "made": "screen-capture", "shows": "receipt"},
+        {"id": pool[2]["id"], "made": "screen-capture", "shows": "text-messages"},
+        {"id": pool[3]["id"], "made": "camera-photo", "shows": "nothing-special"}])   # not wanted
+    argv = ["add", "--field", "shows", "--label", "receipt", "--label", "text-messages",
+            "--eval-data", str(eval_data)]
+    topup.main(argv)
+    out = capsys.readouterr().out
+    assert "2 added as receipt" in out and "1 added as text-messages" in out
+
+    rows = common.load_sample(eval_data)
+    added = [r for r in rows if r["drawn"] == "top-up"]
+    assert len(rows) == 19 and [r["id"] for r in added] == ["s0017", "s0018", "s0019"]
+    assert all(r["drawn"] == "evenly" for r in rows[:16])
+    assert all(common.sample_file(eval_data, r).is_file() for r in added)
+    shows = {r["id"]: r for r in common.read_csv(common.field_file(eval_data, "shows", "labels.csv"))}
+    made = {r["id"]: r for r in common.read_csv(common.field_file(eval_data, "made", "labels.csv"))}
+    assert sorted(shows[r["id"]]["guessed_label"] for r in added) == ["receipt", "receipt", "text-messages"]
+    assert all(made[r["id"]]["guessed_label"] == "screen-capture" for r in added)
+    assert all(shows[r["id"]]["confirmed_label"] == "" for r in added)       # still to be reviewed
+    receipts = [r for r in added if shows[r["id"]]["guessed_label"] == "receipt"]
+    assert sorted(r["half"] for r in receipts) == ["final", "tuning"]
+
+    # Adding again adds nothing twice.
+    topup.main(argv)
+    assert len(common.load_sample(eval_data)) == 19

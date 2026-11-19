@@ -150,9 +150,21 @@ known. The repo's test libraries are synthetic and are no use for this.
      extended, and it is the ceiling to compare the local candidates
      with.
 4. Top up the rare categories. If a label has fewer than 40 examples,
-   find more by hand until it does; below that, its numbers mean little.
-   Record how many were added this way, because it skews how common the
-   category looks.
+   find more until it does; below that, its numbers mean little.
+   `experiments/topup.py` looks for them in the files of a source that
+   were not sampled. Three rules:
+   - **Cast two nets.** A local model suggests files, and so does a plain
+     fact about the file (for instance "is a PNG"). A top-up found by a
+     model alone holds only the examples that model finds easy, and it
+     would flatter that model when it is measured.
+   - **Mark what was added, and how many.** A top-up makes the label look
+     more common than it is. Recall is not affected. Precision is: with
+     more true examples in the set, the right answers outnumber the wrong
+     ones by more than they would in the library. So the harness counts
+     the files of a topped-up label at a reduced weight, such that
+     together they count as many as the evenly drawn ones did.
+   - **Added files are first guesses** and are reviewed like any other,
+     shared equally between the two halves.
 5. Split the set in two, once, at random: half for **tuning** and half for
    **the final check**. Wording, thresholds and model choices are tuned on
    the first half only. The second half is used once per candidate, at the
