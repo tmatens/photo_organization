@@ -65,9 +65,10 @@ def image_vectors(eval_data, clip, rows):
     cache = common.inside(eval_data, "embeddings", clip_local.MODEL["name"] + ".npz")
     ids = [r["id"] for r in rows]
     if cache.exists():
-        saved = np.load(cache)
-        if list(saved["ids"]) == ids:
-            return saved["vectors"]
+        with np.load(cache) as saved:       # closed at once, so Windows can replace it
+            saved_ids, vectors = list(saved["ids"]), saved["vectors"]
+        if saved_ids == ids:
+            return vectors
     vectors = clip.embed_images([str(common.sample_file(eval_data, r)) for r in rows])
     cache.parent.mkdir(parents=True, exist_ok=True)
     # numpy adds .npz to a name that lacks it, so the temporary name keeps it.
@@ -147,7 +148,7 @@ def run_pass2(args):
     guesses = guess(clip, image_vectors(eval_data, clip, rows), categories)
     answers = {r["id"]: {"label": label, "error": ""} for r, (label, _c) in zip(rows, guesses)}
     common.field_file(eval_data, field, "first_guess.json").write_text(json.dumps({
-        "first_guess_by": clip_local.ClipZeroShot.name,
+        "first_guess_by": clip_local.MODEL["name"] + "-zero-shot",
         "note": "A local candidate made the first guesses, so its own score reads a little high.",
     }, indent=2), encoding="utf-8")
     label_first_guess.write_labels(eval_data, answers, field)

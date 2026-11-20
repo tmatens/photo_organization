@@ -32,6 +32,7 @@ refused.
 Usage:
   python experiments/evaluate.py --candidate rules --field made --half tuning
   python experiments/evaluate.py --candidate rules --field made --half final
+  python experiments/evaluate.py --candidate combined:SHOWS_BLEND --field shows --model siglip-b16
 """
 import argparse
 import importlib
@@ -273,6 +274,9 @@ def parse_args(argv=None):
                    help="Which question to measure: how the file was made, or what it shows.")
     p.add_argument("--half", choices=("tuning", "final"), default="tuning",
                    help="Which half to measure on. The final-check half runs once per candidate.")
+    p.add_argument("--model", default=None,
+                   help="For a candidate with a model behind it: which one, by its name in "
+                        "clip_local.MODELS. Default: clip_local.DEFAULT_MODEL.")
     p.add_argument("--packages", nargs="*", default=[],
                    help="pip packages this candidate needs beyond Pillow, to measure their size.")
     p.add_argument("--model-files", nargs="*", default=[],
@@ -284,6 +288,14 @@ def parse_args(argv=None):
 def main(argv=None):
     args = parse_args(argv)
     candidate = load_candidate(args.candidate, args.field)
+    if args.model:
+        import clip_local
+        if not hasattr(candidate, "use_model"):
+            sys.exit("%s has no model behind it, so --model does not apply." % candidate.name)
+        candidate.use_model(clip_local.model_named(args.model))
+        if not args.model_files:
+            folder = clip_local.fetch_model(args.eval_data, clip_local.model_named(args.model))
+            args.model_files = [str(folder / name) for name in clip_local.model_named(args.model)["files"]]
     if hasattr(candidate, "configure"):
         candidate.configure(args.eval_data)
     stem = "%s_%s" % (re.sub(r"[^A-Za-z0-9_-]+", "-", candidate.name), args.half)
