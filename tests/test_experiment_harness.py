@@ -359,3 +359,61 @@ def test_two_models_are_averaged_and_a_label_without_examples_is_switched_off():
     assert sum(shares) == pytest.approx(1.0)
     both = combined.Blend(FixedShares(*described), FixedShares(*by_example), "shows")
     assert both.predict(["a.jpg"]) == [("photo", pytest.approx(0.7))]
+
+
+def test_the_model_behind_a_candidate_is_changed_with_one_option(tmp_path):
+    import clip_local
+    assert clip_local.MODEL is clip_local.MODELS[clip_local.DEFAULT_MODEL]
+    for model in clip_local.MODELS.values():
+        assert len(model["base_url"].rstrip("/").split("/")[-1]) == 40      # one fixed revision
+        assert all(len(sha) == 64 for _remote, sha in model["files"].values())
+        assert {"side", "mean", "std", "cut", "pad_to", "sharpness"} <= set(model)
+    with pytest.raises(SystemExit, match="Choose from"):
+        clip_local.model_named("no-such-model")
+
+    other = clip_local.model_named("siglip-b16")
+    both = combined.RulesThenModel([], combined.Blend(
+        clip_local.ClipZeroShot("shows"), clip_examples.ClipExamples("shows"), "shows"), "shows")
+    assert both.name == "rules+clip-vit-b32-zero-shot+examples"
+    both.use_model(other)
+    assert both.name == "rules+siglip-b16-zero-shot+examples"
+    assert both.model.described.model is other and both.model.by_example.model is other
+
+    # A candidate with no model behind it refuses the option.
+    eval_data = labelled_set(tmp_path, [("photo", "tuning")])
+    with pytest.raises(SystemExit, match="no model behind it"):
+        evaluate.main(["--candidate", "rules", "--field", "shows", "--model", "siglip-b16",
+                       "--eval-data", str(eval_data)])
+
+
+def test_the_numbers_for_the_examples_are_stored_once_and_tied_to_the_model(tmp_path):
+    np = pytest.importorskip("numpy")
+    import clip_local
+    eval_data = labelled_set(tmp_path, [("photo", "tuning"), ("receipt", "tuning")])
+    rows, _ = evaluate.labelled_rows(eval_data, "tuning", "shows")
+
+    class CountingClip:
+        def __init__(self, model):
+            self.model, self.calls = model, 0
+
+        def embed_images(self, paths):
+            self.calls += 1
+            return np.ones((len(paths), 4), dtype=np.float32)
+
+    first = clip_local.MODELS["clip-vit-b32"]
+    clip = CountingClip(first)
+    a = clip_examples.stored_vectors(eval_data, "shows", first, clip, rows)
+    b = clip_examples.stored_vectors(eval_data, "shows", first, CountingClip(first), rows)
+    assert clip.calls == 1 and a.shape == (2, 4) and (a == b).all()
+    assert clip_examples.examples_file(eval_data, "shows", first).is_file()
+
+    # Another revision of the model, or other pictures, and the file is not trusted.
+    moved = dict(first, base_url=first["base_url"].replace("6b7c", "0000"))
+    again = CountingClip(moved)
+    clip_local._VECTORS.clear()
+    clip_examples.stored_vectors(eval_data, "shows", moved, again, rows)
+    assert again.calls == 1
+    fewer = CountingClip(moved)
+    clip_local._VECTORS.clear()
+    clip_examples.stored_vectors(eval_data, "shows", moved, fewer, rows[:1])
+    assert fewer.calls == 1

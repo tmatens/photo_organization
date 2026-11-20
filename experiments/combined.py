@@ -50,6 +50,12 @@ class RulesThenModel:
         self.name = "rules+" + model.name
         self.inner = rules_module.RulesCandidate(rule_list, field=field)
 
+    def use_model(self, model):
+        """Switch the model behind the rules to another entry of
+        clip_local.MODELS."""
+        self.model.use_model(model)
+        self.name = "rules+" + self.model.name
+
     def configure(self, eval_data):
         self.inner.configure(eval_data)
         self.model.configure(eval_data)
@@ -96,6 +102,11 @@ class Blend:
         self.by_example = by_example
         self.field = field
         self.name = "%s+%s" % (described.name, by_example.name.rsplit("-", 1)[-1])
+
+    def use_model(self, model):
+        self.described.use_model(model)
+        self.by_example.use_model(model)
+        self.name = "%s+%s" % (self.described.name, self.by_example.name.rsplit("-", 1)[-1])
 
     def configure(self, eval_data):
         self.described.configure(eval_data)

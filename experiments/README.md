@@ -49,6 +49,26 @@ field keeps its own files in `eval_data/labels/<field>/` and
 | Measure | `python experiments/evaluate.py --candidate rules --field made --half tuning` | Precision, recall, confusion table, speed and install size for one candidate. |
 | Model candidates | `--candidate clip_local`, `--candidate clip_examples`, `--candidate combined` | The same measurement for the local model with descriptions, the local model learning from the tuning half's confirmed pictures, and rules first with a model on what they leave open. `clip_examples:SHOWS_5` and `:SHOWS_20` use only that many examples per label; `combined:SHOWS_EXAMPLES` puts the rules in front of the examples model. |
 
+## Changing the model
+
+Every candidate with a model behind it takes `--model NAME`:
+
+    python experiments/evaluate.py --candidate combined:SHOWS_RULES_BLEND --field shows --model siglip-b16
+
+The names are the entries of `MODELS` in `clip_local.py`: `clip-vit-b32`
+(the default), `clip-vit-b16`, `clip-vit-l14`, `siglip-b16`,
+`mobileclip-s2` and `mobileclip-s0`. A model's files are downloaded once
+into `eval_data/models/` the first time it is used.
+
+- To change which model is used when none is named, change the one line
+  `DEFAULT_MODEL` in `clip_local.py`.
+- To add a model, add one entry to `MODELS`: where its files are, fixed to
+  one revision, the SHA-256 of each file, and how it wants pictures and
+  sentences prepared (size, colour scaling, padding). Those settings come
+  from the model's own published configuration. Nothing else changes.
+- A different model gives different numbers, so results are kept per
+  model: the model's name is part of each result file's name.
+
 ## Ground rules
 
 - **Uploads.** `label_first_guess.py` is the only script that sends anything

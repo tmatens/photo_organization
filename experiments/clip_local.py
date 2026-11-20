@@ -33,26 +33,129 @@ from PIL import Image  # noqa: E402
 # The model, pinned to one revision of one public repository. The pin is
 # changed by hand, never by a bot: a different export is a different
 # candidate and every number measured with the old one stops applying.
-MODEL = {
-    "name": "clip-vit-b32",
-    "base_url": "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/"
-                "6b7c523703ae26e39be4b03774966f8571c7f523/",
-    "files": {
-        "vision_model.onnx": ("onnx/vision_model.onnx",
-                              "fd6e1402a588279d1723c7534d4bcba5bc0b14b47dfab0e46f8c47b8270d7d40"),
-        "text_model.onnx": ("onnx/text_model.onnx",
-                            "3f6571f5bad13a97c469c1622e1cfc4d9aef78b79fdbfcff804ca357bfada8cc"),
-        "tokenizer.json": ("tokenizer.json",
-                           "f7f3b7af117d467b58374797691a6438d3e6b9e9cef800dfd5dced7f697a90cd"),
+# How the CLIP family expects colours: shifted and scaled by these numbers
+# from its training.
+CLIP_MEAN = (0.48145466, 0.4578275, 0.40821073)
+CLIP_STD = (0.26862954, 0.26130258, 0.27577711)
+
+# Every model the experiment can run. Each is fixed to one revision of its
+# published files, and every file is checked by SHA-256 before use. Per
+# model, from its own published settings:
+#   side      pictures are shrunk to side x side pixels
+#   mean/std  how colours are shifted and scaled (None: left as 0 to 1)
+#   cut       "middle": shrink the shorter side, cut out the middle square;
+#             "squash": squeeze the whole picture into the square
+#   pad_to    sentences are filled up to this many tokens with pad_id
+#             (None: sent at their own length)
+#   sharpness how strongly a better match beats a worse one when the
+#             similarities are turned into shares
+MODELS = {
+    "clip-vit-b32": {
+        "name": "clip-vit-b32",
+        "base_url": "https://huggingface.co/Xenova/clip-vit-base-patch32/resolve/"
+                    "6b7c523703ae26e39be4b03774966f8571c7f523/",
+        "files": {
+            "vision_model.onnx": ("onnx/vision_model.onnx",
+                                  "fd6e1402a588279d1723c7534d4bcba5bc0b14b47dfab0e46f8c47b8270d7d40"),
+            "text_model.onnx": ("onnx/text_model.onnx",
+                                "3f6571f5bad13a97c469c1622e1cfc4d9aef78b79fdbfcff804ca357bfada8cc"),
+            "tokenizer.json": ("tokenizer.json",
+                               "f7f3b7af117d467b58374797691a6438d3e6b9e9cef800dfd5dced7f697a90cd"),
+        },
+        "side": 224, "mean": CLIP_MEAN, "std": CLIP_STD, "cut": "middle", "pad_to": None,
+        "sharpness": 100.0,
+    },
+    "clip-vit-b16": {
+        "name": "clip-vit-b16",
+        "base_url": "https://huggingface.co/Xenova/clip-vit-base-patch16/resolve/"
+                    "342fdf2f67aded64d138ff074745fb4a5d2bba5f/",
+        "files": {
+            "vision_model.onnx": ("onnx/vision_model.onnx",
+                                  "b5170b47c0ecc667c9af5b42ed460c341377706d1466d177798c65fe49ea1e6b"),
+            "text_model.onnx": ("onnx/text_model.onnx",
+                                "19f40c7988af119fc50dabfe8015da8595c0372000e2c1f1a6289e35930577aa"),
+            "tokenizer.json": ("tokenizer.json",
+                               "72ed5c96db5729294468543e4bc75fce14ca63f58e37300290189ba1c1e52b85"),
+        },
+        "side": 224, "mean": CLIP_MEAN, "std": CLIP_STD, "cut": "middle", "pad_to": None,
+        "sharpness": 100.0,
+    },
+    "clip-vit-l14": {
+        "name": "clip-vit-l14",
+        "base_url": "https://huggingface.co/Xenova/clip-vit-large-patch14/resolve/"
+                    "c307790166907339eed5a9a53a249af534102536/",
+        "files": {
+            "vision_model.onnx": ("onnx/vision_model.onnx",
+                                  "ff49f8aa57c7abfd26e382eb083e4dbf988505223a9bd3767dbfd4e729206709"),
+            "text_model.onnx": ("onnx/text_model.onnx",
+                                "a86051a90491b97e2ea1d0351ef664926735bca7536034384f901915ee91fd69"),
+            "tokenizer.json": ("tokenizer.json",
+                               "72ed5c96db5729294468543e4bc75fce14ca63f58e37300290189ba1c1e52b85"),
+        },
+        "side": 224, "mean": CLIP_MEAN, "std": CLIP_STD, "cut": "middle", "pad_to": None,
+        "sharpness": 100.0,
+    },
+    "siglip-b16": {
+        "name": "siglip-b16",
+        "base_url": "https://huggingface.co/Xenova/siglip-base-patch16-224/resolve/"
+                    "4649052661e53c7000355844105f8a1792088239/",
+        "files": {
+            "vision_model.onnx": ("onnx/vision_model.onnx",
+                                  "f89d41bac7f4d4b87e010a467d93f98689d708916ed22f5a07f96fdfa26f475f"),
+            "text_model.onnx": ("onnx/text_model.onnx",
+                                "3aa7fdbd20eaa8740cce17bf82913de641fcb632a768fed59f661cdcd0c32553"),
+            "tokenizer.json": ("tokenizer.json",
+                               "4a17c975210be5ab4c36b47d8dae4eefb866dbfb1e676e394aad85dc30a3ae08"),
+        },
+        "side": 224, "mean": (0.5, 0.5, 0.5), "std": (0.5, 0.5, 0.5), "cut": "squash",
+        "pad_to": 64, "pad_id": 1, "lower": True, "sharpness": 100.0,
+    },
+    "mobileclip-s2": {
+        "name": "mobileclip-s2",
+        "base_url": "https://huggingface.co/Xenova/mobileclip_s2/resolve/"
+                    "0c311c620b36a2270b851db7bef9135f3eaae5d7/",
+        "files": {
+            "vision_model.onnx": ("onnx/vision_model.onnx",
+                                  "d28b92d7a3a6ba99bd000cce5c91678c0e279dc934c887a3785908a811872a6c"),
+            "text_model.onnx": ("onnx/text_model.onnx",
+                                "ff82e945c6c652c51df687e10f102a8e43c87d37c9108ff692468be3732f3710"),
+            "tokenizer.json": ("tokenizer.json",
+                               "72ed5c96db5729294468543e4bc75fce14ca63f58e37300290189ba1c1e52b85"),
+        },
+        "side": 256, "mean": None, "std": None, "cut": "middle", "pad_to": 77, "pad_id": 0,
+        "sharpness": 100.0,
+    },
+    "mobileclip-s0": {
+        "name": "mobileclip-s0",
+        "base_url": "https://huggingface.co/Xenova/mobileclip_s0/resolve/"
+                    "757d59c9c6870a76a4b0306f05f5061bca15c39f/",
+        "files": {
+            "vision_model.onnx": ("onnx/vision_model.onnx",
+                                  "17d3c037b1d488c10c50e09f6009ea5a198caef4e0e8f4ea5617b7cb2d067ac0"),
+            "text_model.onnx": ("onnx/text_model.onnx",
+                                "f6e9bd5742bfc515889e901634d8a2ff2a57fab8564e4ad3760e800b1a51b77c"),
+            "tokenizer.json": ("tokenizer.json",
+                               "72ed5c96db5729294468543e4bc75fce14ca63f58e37300290189ba1c1e52b85"),
+        },
+        "side": 256, "mean": None, "std": None, "cut": "middle", "pad_to": 77, "pad_id": 0,
+        "sharpness": 100.0,
     },
 }
+# The model used when none is asked for. To try another, pass --model NAME
+# to evaluate.py; to change the default, change this one line.
+DEFAULT_MODEL = "clip-vit-b32"
+MODEL = MODELS[DEFAULT_MODEL]
 
-# How CLIP expects a picture: 224 pixels square, each colour shifted and
-# scaled by these numbers from its training.
-SIDE = 224
-MEAN = (0.48145466, 0.4578275, 0.40821073)
-STD = (0.26862954, 0.26130258, 0.27577711)
-# CLIP multiplies similarities by 100 before turning them into shares.
+
+def model_named(name):
+    """The settings of one model from MODELS, or a clear refusal."""
+    if name not in MODELS:
+        sys.exit("No model named %r. Choose from: %s" % (name, ", ".join(MODELS)))
+    return MODELS[name]
+
+SIDE = MODEL["side"]
+MEAN = CLIP_MEAN
+STD = CLIP_STD
 SHARPNESS = 100.0
 
 # Short descriptions to score a picture against, per label of the starting
@@ -89,8 +192,10 @@ FIELD_DESCRIPTIONS = {
     "receipt": ["a photo of a till receipt", "a scanned invoice or bill",
                 "a screenshot of an order confirmation",
                 "a screenshot of a purchase or transaction on a phone"],
-    "ticket": ["a screenshot of a boarding pass", "a ticket for an event",
-               "a screenshot of a flight or hotel booking", "a travel itinerary"],
+    "ticket": ["a screenshot of a boarding pass with a barcode",
+               "a screenshot of a flight booking confirmation",
+               "a screenshot of an event ticket with a QR code",
+               "a screenshot of a hotel reservation"],
     "cart": ["a screenshot of a shopping cart", "a screenshot of items in an online basket",
              "a checkout page before paying"],
     "document": ["a printed page of text", "a letter or a form", "a flyer or a schedule",
@@ -113,8 +218,15 @@ FIELD_DESCRIPTIONS = {
     "screen-other": ["a screenshot of an app", "a screenshot of a web page",
                      "a screenshot of a form or a calendar", "a screenshot of a social media post",
                      "a frame of a video with a play button"],
+    # The default label is the most varied one, so it gets the most
+    # descriptions: any one of them matching is enough.
     "photo": ["a photo of people", "a photo of a child", "a photo of a place outdoors",
-              "a photo of an event", "a photo of food", "a photo of a pet"],
+              "a photo of an event", "a photo of food", "a photo of a pet",
+              "a photo of a baby's face", "a photo of a family indoors at home", "a selfie",
+              "a photo of a group of people posing", "a photo of children playing",
+              "a photo of a landscape", "a photo of a holiday or a trip",
+              "a photo taken at a party or a celebration", "a photo of people at a restaurant",
+              "a photo of a sports game"],
 }
 
 
@@ -216,18 +328,25 @@ def model_megabytes(eval_data, model=MODEL):
     return sum((folder / name).stat().st_size for name in model["files"]) / 1e6
 
 
-def prepare(img):
-    """One picture as CLIP wants it: the shorter side shrunk to 224 pixels,
-    the middle 224 x 224 cut out, colours scaled. Returns a numpy array of
-    shape (3, 224, 224)."""
+def prepare(img, model=MODEL):
+    """One picture as the model wants it. For CLIP: the shorter side shrunk
+    to 224 pixels, the middle 224 x 224 cut out, colours scaled. Returns a
+    numpy array of shape (3, side, side)."""
     import numpy as np
-    w, h = img.size
-    scale = SIDE / min(w, h)
-    img = img.resize((max(SIDE, round(w * scale)), max(SIDE, round(h * scale))), Image.BICUBIC)
-    w, h = img.size
-    left, top = (w - SIDE) // 2, (h - SIDE) // 2
-    pixels = np.asarray(img.crop((left, top, left + SIDE, top + SIDE)), dtype=np.float32) / 255.0
-    pixels = (pixels - np.array(MEAN, dtype=np.float32)) / np.array(STD, dtype=np.float32)
+    side = model["side"]
+    if model["cut"] == "squash":
+        img = img.resize((side, side), Image.BICUBIC)
+    else:
+        w, h = img.size
+        scale = side / min(w, h)
+        img = img.resize((max(side, round(w * scale)), max(side, round(h * scale))), Image.BICUBIC)
+        w, h = img.size
+        left, top = (w - side) // 2, (h - side) // 2
+        img = img.crop((left, top, left + side, top + side))
+    pixels = np.asarray(img, dtype=np.float32) / 255.0
+    if model["mean"] is not None:
+        pixels = (pixels - np.array(model["mean"], dtype=np.float32)) \
+            / np.array(model["std"], dtype=np.float32)
     return pixels.transpose(2, 0, 1)
 
 
@@ -237,7 +356,7 @@ def unit(vectors):
     return vectors / np.linalg.norm(vectors, axis=1, keepdims=True)
 
 
-def shares(image_vectors, description_vectors, labels_of):
+def shares(image_vectors, description_vectors, labels_of, sharpness=SHARPNESS):
     """For each picture, how strongly it matches each label, as shares that
     add up to 1.
 
@@ -249,7 +368,7 @@ def shares(image_vectors, description_vectors, labels_of):
     description would lose to a single specific one.
     Returns (labels in first-seen order, array of shares)."""
     import numpy as np
-    scores = SHARPNESS * image_vectors @ description_vectors.T
+    scores = sharpness * image_vectors @ description_vectors.T
     scores = scores - scores.max(axis=1, keepdims=True)
     exp = np.exp(scores)
     each = exp / exp.sum(axis=1, keepdims=True)
@@ -292,39 +411,66 @@ class Clip:
     def __init__(self, eval_data, model=MODEL):
         import onnxruntime
         from tokenizers import Tokenizer
+        self.model = model
         folder = fetch_model(eval_data, model)
         options = {"providers": ["CPUExecutionProvider"]}      # no graphics card, by design
         self.vision = onnxruntime.InferenceSession(str(folder / "vision_model.onnx"), **options)
         self.text = onnxruntime.InferenceSession(str(folder / "text_model.onnx"), **options)
         self.tokenizer = Tokenizer.from_file(str(folder / "tokenizer.json"))
+        self.tokenizer.no_padding()
+        self.vision_out = pooled_output(self.vision)
+        self.text_out = pooled_output(self.text)
+        self.text_inputs = [i.name for i in self.text.get_inputs()]
 
     def embed_images(self, paths, batch=16):
         """A unit vector per image path. A file that cannot be opened gets a
         row of zeros, which matches nothing."""
         import numpy as np
-        out = np.zeros((len(paths), 512), dtype=np.float32)
+        out = None
         for start in range(0, len(paths), batch):
             good, pixels = [], []
             for i, path in enumerate(paths[start:start + batch], start):
                 try:
-                    pixels.append(prepare(common.open_upright(path)))
+                    pixels.append(prepare(common.open_upright(path), self.model))
                     good.append(i)
                 except Exception:
                     pass
             if good:
-                vectors = self.vision.run(None, {"pixel_values": np.stack(pixels)})[0]
+                vectors = self.vision.run([self.vision_out], {"pixel_values": np.stack(pixels)})[0]
+                if out is None:
+                    out = np.zeros((len(paths), vectors.shape[1]), dtype=np.float32)
                 out[good] = unit(vectors)
-        return out
+        return out if out is not None else np.zeros((len(paths), 1), dtype=np.float32)
 
     def embed_texts(self, texts):
-        """A unit vector per sentence. Sentences go in one at a time: this
-        export of the model has no way to be told which tokens are padding."""
+        """A unit vector per sentence. Sentences go in one at a time. Some
+        models want every sentence filled up to a fixed length; CLIP's
+        export has no way to be told which tokens are padding, so it gets
+        each sentence at its own length."""
         import numpy as np
         rows = []
         for text in texts:
-            ids = np.array([self.tokenizer.encode(text).ids], dtype=np.int64)
-            rows.append(self.text.run(None, {"input_ids": ids})[0][0])
+            if self.model.get("lower"):
+                text = text.lower()
+            ids = list(self.tokenizer.encode(text).ids)
+            if self.model["pad_to"]:
+                ids = (ids + [self.model["pad_id"]] * self.model["pad_to"])[:self.model["pad_to"]]
+            feed = {"input_ids": np.array([ids], dtype=np.int64)}
+            if "attention_mask" in self.text_inputs:
+                feed["attention_mask"] = np.ones((1, len(ids)), dtype=np.int64)
+            rows.append(self.text.run([self.text_out], feed)[0][0])
         return unit(np.stack(rows))
+
+
+def pooled_output(session):
+    """The name of the output that holds one vector per picture or
+    sentence. Exports name it differently; the per-token output is never
+    the one wanted."""
+    names = [o.name for o in session.get_outputs()]
+    for wanted in ("image_embeds", "text_embeds", "pooler_output"):
+        if wanted in names:
+            return wanted
+    return names[0]
 
 
 _VECTORS = {}
@@ -335,10 +481,10 @@ def embed_once(clip, paths):
     worked out again. Two candidates that use the same model on the same
     files then cost one pass, as they would in a real tool."""
     import numpy as np
-    keys = [os.path.abspath(str(p)) for p in paths]
+    keys = [(clip.model["name"], os.path.abspath(str(p))) for p in paths]
     todo = [k for k in dict.fromkeys(keys) if k not in _VECTORS]
     if todo:
-        for key, vector in zip(todo, clip.embed_images(todo)):
+        for key, vector in zip(todo, clip.embed_images([path for _name, path in todo])):
             _VECTORS[key] = vector
     return np.stack([_VECTORS[k] for k in keys])
 
@@ -363,27 +509,34 @@ class ClipZeroShot:
     """Candidate 2 of the plan, for evaluate.py. One per field: it scores
     pictures against the descriptions in that field's settled list."""
 
-    name = MODEL["name"] + "-zero-shot"
-
-    def __init__(self, field):
+    def __init__(self, field, model=MODEL):
         self.field = field
+        self.model = model
+        self.name = model["name"] + "-zero-shot"
         self.eval_data = common.DEFAULT_EVAL_DATA
         self.loaded = None
 
     def configure(self, eval_data):
         self.eval_data = eval_data
 
+    def use_model(self, model):
+        """Switch to another entry of MODELS. evaluate.py --model does this."""
+        self.model = model
+        self.name = model["name"] + "-zero-shot"
+        self.loaded = None
+
     def scores(self, paths):
         """(labels, one row of shares per path): how strongly each picture
         matches each label. combined.py uses this to drop the labels the
         rules have ruled out before the strongest is picked."""
         if self.loaded is None:
-            clip = Clip(self.eval_data)
+            clip = Clip(self.eval_data, self.model)
             path = common.field_file(self.eval_data, self.field, "categories.json")
             texts, labels_of = descriptions_from(json.loads(path.read_text(encoding="utf-8")))
             self.loaded = (clip, clip.embed_texts(texts), labels_of)
         clip, description_vectors, labels_of = self.loaded
-        return shares(embed_once(clip, list(paths)), description_vectors, labels_of)
+        return shares(embed_once(clip, list(paths)), description_vectors, labels_of,
+                      self.model["sharpness"])
 
     def predict(self, paths):
         labels, share_rows = self.scores(paths)

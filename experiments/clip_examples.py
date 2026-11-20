@@ -8,8 +8,10 @@ confirmed pictures of the tuning half, and the labels of the few most
 similar ones vote. This is the sort_screenshots.py idea with a model behind
 it: show it some examples and it finds the rest.
 
-Nothing is trained. The examples are the confirmed labels of the tuning
-half, so on that half every picture is judged without itself among the
+Nothing is trained. What is kept of each example is not the picture but
+the list of numbers the model works out from it; those are stored in
+eval_data/examples/ and reused. The examples are the confirmed labels of
+the tuning half, so on that half every picture is judged without itself among the
 examples; otherwise each would simply find itself. On the final-check half
 all tuning examples are used.
 
@@ -62,16 +64,51 @@ def pick_examples(rows, per_label=None, seed=0):
     return out
 
 
+def examples_file(eval_data, field, model):
+    """Where one model's numbers for one field's examples are kept."""
+    return common.inside(eval_data, "examples", field, model["name"] + ".npz")
+
+
+def stored_vectors(eval_data, field, model, clip, examples):
+    """The model's numbers for the example pictures, kept in a file inside
+    eval_data so the pictures are read once and not again.
+
+    The file is used only if it was made by this exact model revision for
+    exactly these pictures; otherwise the numbers are worked out afresh and
+    the file is replaced. The numbers are derived from private pictures, so
+    the file stays in eval_data like everything else."""
+    import numpy as np
+    path = examples_file(eval_data, field, model)
+    ids = [r["id"] for r in examples]
+    if path.exists():
+        saved = np.load(path)
+        if str(saved["made_by"]) == model["base_url"] and list(saved["ids"]) == ids:
+            return saved["vectors"]
+    vectors = clip_local.embed_once(clip, [r["path"] for r in examples])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # numpy adds .npz to a name that lacks it, so the temporary name keeps it.
+    tmp = path.with_name("partial-%d-%s" % (os.getpid(), path.name))
+    np.savez(tmp, ids=np.array(ids), labels=np.array([r["true_label"] for r in examples]),
+             vectors=vectors, made_by=np.array(model["base_url"]))
+    os.replace(tmp, path)
+    return vectors
+
+
 class ClipExamples:
     """The candidate. per_label limits how many examples of each label are
     used, to measure how few are enough."""
 
-    def __init__(self, field, per_label=None):
+    def __init__(self, field, per_label=None, model=clip_local.MODEL):
         self.field = field
         self.per_label = per_label
-        self.name = "%s-examples%s" % (clip_local.MODEL["name"],
-                                       "" if per_label is None else "-%d" % per_label)
         self.eval_data = common.DEFAULT_EVAL_DATA
+        self.use_model(model)
+
+    def use_model(self, model):
+        """Switch to another entry of clip_local.MODELS."""
+        self.model = model
+        self.name = "%s-examples%s" % (model["name"],
+                                       "" if self.per_label is None else "-%d" % self.per_label)
         self.loaded = None
 
     def configure(self, eval_data):
@@ -81,8 +118,8 @@ class ClipExamples:
         import evaluate
         rows, _unreviewed = evaluate.labelled_rows(self.eval_data, "tuning", self.field)
         examples = pick_examples(rows, self.per_label)
-        clip = clip_local.Clip(self.eval_data)
-        vectors = clip_local.embed_once(clip, [r["path"] for r in examples])
+        clip = clip_local.Clip(self.eval_data, self.model)
+        vectors = stored_vectors(self.eval_data, self.field, self.model, clip, examples)
         labels = list(dict.fromkeys(r["true_label"] for r in sorted(rows, key=lambda r: r["true_label"])))
         self.loaded = (clip, vectors, [r["true_label"] for r in examples],
                        [str(Path(r["path"]).resolve()) for r in examples], labels)

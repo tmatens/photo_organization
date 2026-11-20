@@ -137,7 +137,7 @@ def choose(pool_rows, labels, share_rows, wanted, fact_rows, also, min_share=MIN
     return sorted(picks, key=lambda p: (-float(p["share"]), p["id"]))
 
 
-def pick(eval_data, field, wanted, also, min_share=MIN_SHARE):
+def pick(eval_data, field, wanted, also, min_share=MIN_SHARE, model=None):
     """Run the local model and the facts over the pool and write picks.csv."""
     import clip_local
     pool, readable, fact_rows = load_pool(eval_data), [], []
@@ -153,7 +153,7 @@ def pick(eval_data, field, wanted, also, min_share=MIN_SHARE):
     unknown = [w for w in wanted if w not in [e["label"] for e in categories["labels"]]]
     if unknown:
         sys.exit("Not a label of the '%s' question: %s" % (field, ", ".join(unknown)))
-    clip = clip_local.Clip(eval_data)
+    clip = clip_local.Clip(eval_data, clip_local.model_named(model or clip_local.DEFAULT_MODEL))
     texts, labels_of = clip_local.descriptions_from(categories)
     vectors = clip.embed_images([str(pool_file(eval_data, r)) for r in readable])
     labels, share_rows = clip_local.shares(vectors, clip.embed_texts(texts), labels_of)
@@ -228,6 +228,8 @@ def main(argv=None):
                    help="pick: also pick every file with this fact, whatever the model says.")
     p.add_argument("--min-share", type=float, default=MIN_SHARE,
                    help="pick: the share the model must give the wanted labels together.")
+    p.add_argument("--model", default=None,
+                   help="pick: which model suggests files, by its name in clip_local.MODELS.")
     p.add_argument("--eval-data", default=str(common.DEFAULT_EVAL_DATA))
     args = p.parse_args(argv)
     if not common.load_sample(args.eval_data):
@@ -244,7 +246,7 @@ def main(argv=None):
         p.error("%s needs --field and at least one --label" % args.stage)
     if args.stage == "pick":
         picks, looked_at = pick(args.eval_data, args.field, args.label,
-                                parse_also(args.also), args.min_share)
+                                parse_also(args.also), args.min_share, args.model)
         print("%d of the %d files in the pool are worth a look:" % (len(picks), looked_at))
         for why in sorted({p_["why"] for p_ in picks}):
             print("  %5d picked by %s" % (sum(1 for p_ in picks if p_["why"] == why), why))
