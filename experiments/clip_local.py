@@ -103,6 +103,8 @@ FIELD_DESCRIPTIONS = {
                 "a collage of products from a shop", "a catalogue picture of furniture"],
     "thing": ["a photo of something for sale", "a photo of damage or a repair",
               "a photo of an object on a table", "a photo of a sign"],
+    "car": ["a photo of a parked car", "a photo of a car for sale", "a photo of damage to a car",
+            "a photo of a car dashboard"],
     "interior": ["a photo of an empty room", "a photo of a living room with furniture",
                  "an interior design picture of a kitchen or a bathroom",
                  "a home decorating idea"],
