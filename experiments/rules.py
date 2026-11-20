@@ -98,9 +98,37 @@ class RulesCandidate:
         return answers
 
 
-# Filled in from the tuning-half review. Each entry is measured before it
-# is kept, and its totals go in the plan.
-RULES = {"made": [], "shows": []}
+def no_camera(f):
+    return f["has_make"] == "no"
+
+
+# Found on the tuning half. Each rule's confidence is how often it was right
+# there, so a threshold of 0.95 keeps only the rules that met the plan's
+# precision bar. The totals are in the plan's results table.
+RULES = {
+    "made": [
+        Rule("the camera recorded its make: taken with a camera", "camera-photo",
+             lambda f: f["has_make"] == "yes", confidence=0.99),
+        Rule("a PNG file: a screen capture", "screen-capture",
+             lambda f: f["type"] == "png", confidence=0.96),
+        Rule("no camera make, and more than twice as tall as wide: a screen capture",
+             "screen-capture", lambda f: no_camera(f) and f["aspect"] >= 2.1, confidence=0.83),
+        Rule("no camera make, but almost no flat colour anywhere: taken with a camera",
+             "camera-photo", lambda f: no_camera(f) and f["flat_share"] < 0.1, confidence=0.98),
+    ],
+    "shows": [
+        # A file with a camera make is never a text thread, a receipt on a
+        # screen, a ticket, a cart, a music app or some other screen. These
+        # decide nothing alone; they stop later rules and narrow a model's
+        # choice.
+        Rule("the camera recorded its make: not a text thread", None,
+             lambda f: f["has_make"] == "yes", rules_out="text-thread"),
+        Rule("the camera recorded its make: not some other screen", None,
+             lambda f: f["has_make"] == "yes", rules_out="screen-other"),
+        Rule("the camera recorded its make: an ordinary photo", "photo",
+             lambda f: f["has_make"] == "yes", confidence=0.91),
+    ],
+}
 
 MADE = RulesCandidate(RULES["made"], field="made")
 SHOWS = RulesCandidate(RULES["shows"], field="shows")
