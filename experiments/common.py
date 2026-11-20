@@ -62,6 +62,9 @@ FIELD_LABELS = {
         ("interior", "The inside of a building with no person or pet as the subject: a room, a "
                      "hallway, a piece of decor in place, whether your own picture or a saved "
                      "decorating idea"),
+        ("car", "A car or other vehicle is the main subject of the picture: one for sale, your "
+                "own, damage to one, its interior or dashboard. A picture of people or pets "
+                "with a car in it, or a street where cars happen to be, is not this"),
         ("meme-or-graphic", "A meme, a quote card, an infographic, a logo, an advert or another made "
                             "image"),
         ("thing", "Your own picture that records or shows a thing, with no person as the subject: "
@@ -84,7 +87,7 @@ FIELD_TIE_RULE = {
     "shows": "Judge only what is on it, never how it was made. When two labels fit, the one that "
              "comes first in this order wins: text-thread, receipt, ticket, cart, document, "
              "drawing, "
-             "product, interior, meme-or-graphic, thing, screen-other, "
+             "product, interior, car, meme-or-graphic, thing, screen-other, "
              "photo.",
 }
 
