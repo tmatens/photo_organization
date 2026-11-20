@@ -106,9 +106,11 @@ FIELD_DESCRIPTIONS = {
     "interior": ["a photo of an empty room", "a photo of a living room with furniture",
                  "an interior design picture of a kitchen or a bathroom",
                  "a home decorating idea"],
-    "nothing-special": ["a photo of people", "a photo of a child", "a photo of a place outdoors",
-                        "a photo of an event", "a photo of food", "a photo of a pet",
-                        "a screenshot of an app", "a screenshot of a social media post"],
+    "screen-other": ["a screenshot of an app", "a screenshot of a web page",
+                     "a screenshot of a form or a calendar", "a screenshot of a social media post",
+                     "a frame of a video with a play button"],
+    "photo": ["a photo of people", "a photo of a child", "a photo of a place outdoors",
+              "a photo of an event", "a photo of food", "a photo of a pet"],
 }
 
 

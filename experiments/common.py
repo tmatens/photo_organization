@@ -66,12 +66,15 @@ FIELD_LABELS = {
                             "image"),
         ("thing", "Your own picture that records or shows a thing, with no person as the subject: "
                   "an item for sale, damage or a repair, something you own, a sign"),
-        ("nothing-special", "None of the above: people, pets, places, events, food, or a screen that "
-                            "shows nothing listed here. The default, and the largest group"),
+        ("screen-other", "A screen, web page or app page that shows nothing listed here: a form, a "
+                         "calendar, a search result, a video frame, a post that is mostly text"),
+        ("photo", "A real picture of people, pets, places, events or food, however it reached "
+                  "you: taken with a camera, saved from the web, or shown on a captured screen "
+                  "where the picture is the point. The default, and by far the largest group"),
     ],
 }
 # The label a field falls back to, and the one most files get.
-FIELD_DEFAULT = {"made": "camera-photo", "shows": "nothing-special"}
+FIELD_DEFAULT = {"made": "camera-photo", "shows": "photo"}
 # What to do when two labels of one field seem to fit. Written down before
 # labelling starts, as the plan requires.
 FIELD_TIE_RULE = {
@@ -81,7 +84,8 @@ FIELD_TIE_RULE = {
     "shows": "Judge only what is on it, never how it was made. When two labels fit, the one that "
              "comes first in this order wins: text-thread, receipt, ticket, cart, document, "
              "drawing, "
-             "product, interior, meme-or-graphic, thing, nothing-special.",
+             "product, interior, meme-or-graphic, thing, screen-other, "
+             "photo.",
 }
 
 # The list for the first look at a new sample, before the two fields are

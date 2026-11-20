@@ -25,7 +25,7 @@ Every file gets two labels, each answering one question, called a field:
 - `made`: how the file was made (a camera photo, a screen capture, a saved
   image, a copy of something on paper);
 - `shows`: what it shows (a receipt, a text thread, a document, a drawing,
-  a meme or graphic, a thing, or nothing special).
+  a meme or graphic, a thing, some other screen, or a photo).
 
 The lists and the guide for close calls are in `common.py`. From pass 2
 onwards every command takes `--field made` or `--field shows`, and each

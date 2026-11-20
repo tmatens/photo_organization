@@ -480,7 +480,7 @@ def test_fetch_copies_only_the_files_that_were_not_sampled_and_changes_no_source
 
 def test_a_file_is_picked_by_the_model_or_by_a_fact_and_the_reason_is_kept():
     pool = [{"id": "p1"}, {"id": "p2"}, {"id": "p3"}, {"id": "p4"}]
-    labels = ["receipt", "text-thread", "nothing-special"]
+    labels = ["receipt", "text-thread", "photo"]
     shares = [[0.05, 0.02, 0.93],       # neither net
               [0.06, 0.06, 0.88],       # the two wanted labels together reach the share
               [0.00, 0.01, 0.99],       # only the fact
@@ -489,8 +489,8 @@ def test_a_file_is_picked_by_the_model_or_by_a_fact_and_the_reason_is_kept():
     picks = topup.choose(pool, labels, shares, ["receipt", "text-thread"], fact_rows,
                          topup.parse_also(["type=png"]), min_share=0.10)
     assert [(p["id"], p["why"], p["model_label"]) for p in picks] == [
-        ("p4", "model+facts", "receipt"), ("p2", "model", "nothing-special"),
-        ("p3", "facts", "nothing-special")]
+        ("p4", "model+facts", "receipt"), ("p2", "model", "photo"),
+        ("p3", "facts", "photo")]
     with pytest.raises(SystemExit, match="FACT=VALUE"):
         topup.parse_also(["colour=blue"])
 
@@ -507,7 +507,7 @@ def test_confirmed_picks_join_the_sample_as_top_ups_shared_between_the_halves(tm
         {"id": pool[0]["id"], "made": "screen-capture", "shows": "receipt"},
         {"id": pool[1]["id"], "made": "screen-capture", "shows": "receipt"},
         {"id": pool[2]["id"], "made": "screen-capture", "shows": "text-thread"},
-        {"id": pool[3]["id"], "made": "camera-photo", "shows": "nothing-special"}])   # not wanted
+        {"id": pool[3]["id"], "made": "camera-photo", "shows": "photo"}])   # not wanted
     argv = ["add", "--field", "shows", "--label", "receipt", "--label", "text-thread",
             "--eval-data", str(eval_data)]
     topup.main(argv)

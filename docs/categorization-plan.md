@@ -91,12 +91,12 @@ with exactly one answer to each question.
 | `interior` | The inside of a building with no person or pet as the subject: a room, a hallway, a piece of decor in place, whether your own picture or a saved decorating idea |
 | `meme-or-graphic` | A meme, a quote card, an infographic, a logo, an advert or another made image |
 | `thing` | Your own picture that records or shows a thing, with no person as the subject: an item for sale, damage or a repair, something you own, a sign |
-| `nothing-special` | None of the above: people, pets, places, events, food, or a screen that shows nothing listed here. The default, and the largest group |
+| `screen-other` | A screen, web page or app page that shows nothing listed here: a form, a calendar, a search result, a video frame, a post that is mostly text |
+| `photo` | A real picture of people, pets, places, events or food, however it reached you: taken with a camera, saved from the web, or shown on a captured screen where the picture is the point. The default, and by far the largest group |
 
 The old labels map onto these. A `screenshot` is a `screen-capture` that
-shows whatever it shows. A `photo-of-photo` is a `paper-copy` that shows
-`nothing-special`. A `photo` is a `camera-photo` that shows
-`nothing-special`.
+shows whatever it shows. A `photo-of-photo` is a `paper-copy` that shows a
+`photo`. The old `photo` is a `camera-photo` that shows a `photo`.
 
 What this changes in the rest of the plan:
 
