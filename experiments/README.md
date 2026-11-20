@@ -47,6 +47,7 @@ field keeps its own files in `eval_data/labels/<field>/` and
 | Fact review | `python experiments/fact_review.py --field made` | Charts every fact against every label and says which separate it. |
 | Rules | edit `experiments/rules.py`, then `python experiments/rules.py --field made` | Each rule of one field measured alone. |
 | Measure | `python experiments/evaluate.py --candidate rules --field made --half tuning` | Precision, recall, confusion table, speed and install size for one candidate. |
+| Model candidates | `--candidate clip_local`, `--candidate clip_examples`, `--candidate combined` | The same measurement for the local model with descriptions, the local model learning from the tuning half's confirmed pictures, and rules first with a model on what they leave open. `clip_examples:SHOWS_5` and `:SHOWS_20` use only that many examples per label; `combined:SHOWS_EXAMPLES` puts the rules in front of the examples model. |
 
 ## Ground rules
 

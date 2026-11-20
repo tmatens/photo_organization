@@ -61,6 +61,11 @@ def decide(rules, file_facts):
     return None, 0.0, None
 
 
+def ruled_out(rules, file_facts):
+    """The labels the rules say this file is not."""
+    return {rule.rules_out for rule in rules if rule.label is None and rule.test(file_facts)}
+
+
 class RulesCandidate:
     """Plugs a list of rules into evaluate.py."""
 
@@ -125,6 +130,14 @@ RULES = {
              lambda f: f["has_make"] == "yes", rules_out="text-thread"),
         Rule("the camera recorded its make: not some other screen", None,
              lambda f: f["has_make"] == "yes", rules_out="screen-other"),
+        Rule("the camera recorded its make: not a shopping cart", None,
+             lambda f: f["has_make"] == "yes", rules_out="cart"),
+        Rule("the camera recorded its make: not a music app", None,
+             lambda f: f["has_make"] == "yes", rules_out="music-app"),
+        Rule("a PNG file: not your own picture of a thing", None,
+             lambda f: f["type"] == "png", rules_out="thing"),
+        Rule("a PNG file: not your own picture of a car", None,
+             lambda f: f["type"] == "png", rules_out="car"),
         Rule("the camera recorded its make: an ordinary photo", "photo",
              lambda f: f["has_make"] == "yes", confidence=0.91),
     ],
