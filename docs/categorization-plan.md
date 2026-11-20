@@ -90,6 +90,7 @@ with exactly one answer to each question.
 | `product` | A product picture or a shop page saved from the web, with nothing bought: one item, or several put together in a collage |
 | `interior` | The inside of a building with no person or pet as the subject: a room, a hallway, a piece of decor in place, whether your own picture or a saved decorating idea |
 | `car` | A car or other vehicle is the main subject of the picture: one for sale, your own, damage to one, its interior or dashboard. A picture of people or pets with a car in it, or a street where cars happen to be, is not this |
+| `music-app` | A screen capture of a music or audio app: a song, album, playlist or station playing or listed in an app such as a streaming service or a podcast player |
 | `meme-or-graphic` | A meme, a quote card, an infographic, a logo, an advert or another made image |
 | `thing` | Your own picture that records or shows a thing, with no person as the subject: an item for sale, damage or a repair, something you own, a sign |
 | `screen-other` | A screen, web page or app page that shows nothing listed here: a form, a calendar, a search result, a video frame, a post that is mostly text |

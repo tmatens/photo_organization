@@ -105,6 +105,8 @@ FIELD_DESCRIPTIONS = {
               "a photo of an object on a table", "a photo of a sign"],
     "car": ["a photo of a parked car", "a photo of a car for sale", "a photo of damage to a car",
             "a photo of a car dashboard"],
+    "music-app": ["a screenshot of a music streaming app", "a screenshot of a song playing with "
+                  "album art and a play button", "a screenshot of a playlist of songs"],
     "interior": ["a photo of an empty room", "a photo of a living room with furniture",
                  "an interior design picture of a kitchen or a bathroom",
                  "a home decorating idea"],
