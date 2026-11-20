@@ -357,14 +357,20 @@ class ClipZeroShot:
     def configure(self, eval_data):
         self.eval_data = eval_data
 
-    def predict(self, paths):
+    def scores(self, paths):
+        """(labels, one row of shares per path): how strongly each picture
+        matches each label. combined.py uses this to drop the labels the
+        rules have ruled out before the strongest is picked."""
         if self.loaded is None:
             clip = Clip(self.eval_data)
             path = common.field_file(self.eval_data, self.field, "categories.json")
             texts, labels_of = descriptions_from(json.loads(path.read_text(encoding="utf-8")))
             self.loaded = (clip, clip.embed_texts(texts), labels_of)
         clip, description_vectors, labels_of = self.loaded
-        labels, share_rows = shares(clip.embed_images(list(paths)), description_vectors, labels_of)
+        return shares(clip.embed_images(list(paths)), description_vectors, labels_of)
+
+    def predict(self, paths):
+        labels, share_rows = self.scores(paths)
         return best_labels(share_rows, labels)
 
 

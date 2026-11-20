@@ -395,3 +395,56 @@ drawings. What a camera make does settle is what a file is not: none of
 the 300 was a text thread, a receipt on a screen or some other screen.
 So the rules' use for "what it shows" is to narrow a model's choices, not
 to replace it.
+
+### Steps 3 and 4 on the tuning half: first model candidates
+
+Not a result either: tuning-half numbers for "what it shows", with
+thresholds picked on the same files, so they read high. 623 files. One
+label that the owner keeps private is measured but left out of the tables.
+All candidates use the same CLIP ViT-B/32 model, 193 MB of packages plus
+the model download, on the CPU.
+
+Files given the right label when every file is labelled, and speed:
+
+| Candidate | Right | Images/s |
+|---|---|---|
+| Rules only | none at the bar | 16.8 |
+| Model with descriptions (zero-shot) | 482 of 623 (77%) | 9.5 |
+| Model with examples, all of the tuning half | 554 of 623 (89%) | 4.8 |
+| Model with examples, 20 per label | not better than descriptions | 8.2 |
+| Rules, then model with descriptions | as descriptions alone | 6.1 |
+| Rules, then model with examples | as examples alone | 3.8 |
+
+The examples candidates' speed includes working out the examples' own
+numbers on every run, which a real tool would do once and keep.
+
+Share of each label found at 95% precision or better:
+
+| Label | Files | Descriptions | Examples (all) |
+|---|---|---|---|
+| `photo` | 422 | 79% | 97% |
+| `screen-other` | 35 | none | none |
+| `text-thread` | 27 | 48% | 67% |
+| `thing` | 22 | 27% | 5% |
+| `interior` | 16 | 44% | none |
+| `meme-or-graphic` | 16 | 25% | 6% |
+| `receipt` | 11 | 18% | 9% |
+| `document` | 9 | 11% | 33% |
+| `product` | 7 | 29% | none |
+| `car` | 5 | 100% | 100% |
+| `drawing` | 3 | none | none |
+| `ticket` | 2 | none | none |
+
+What the first round shows:
+
+- Learning from examples beats descriptions overall, mostly because it
+  is better at saying a photo is a photo. It needs many examples: with 20
+  per label it is no better than descriptions, and with 5 it is worse.
+- Descriptions are better for the labels with few examples (`interior`,
+  `thing`, `product`), where there is little to learn from.
+- Putting the rules in front changes almost nothing. The model already
+  avoids the labels the rules rule out.
+- With descriptions, labels that have no files in this half (`cart`,
+  `music-app`) and `ticket` still attract screen captures that belong
+  elsewhere. An empty label is not free.
+- Only `photo` has enough files for its number to be firm.

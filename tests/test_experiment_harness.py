@@ -285,3 +285,66 @@ def test_the_best_cut_and_single_rules_use_the_same_weight():
     rule = rules.Rule("every file is a receipt", "receipt", lambda row: True)
     report = rules.measure_each([rule], [{"id": i} for i in truth], truth, topped_up={"b", "c", "d"})
     assert report[0]["precision"] == pytest.approx(0.5) and report[0]["recall"] == 1.0
+
+
+# --- examples and rules with a model ---------------------------------------
+
+import clip_examples  # noqa: E402
+import combined  # noqa: E402
+
+
+def test_the_most_similar_examples_vote_and_a_closer_one_counts_for_more():
+    labels = ["photo", "receipt"]
+    examples = ["receipt", "receipt", "photo", "photo", "photo"]
+    shares = clip_examples.vote([0.9, 0.8, 0.3, 0.2, 0.1], examples, labels, neighbours=3)
+    assert shares[1] == pytest.approx(1.7 / 2.0) and sum(shares) == pytest.approx(1.0)
+    assert clip_examples.vote([0.9, 0.8, 0.3, 0.2, 0.1], examples, labels, neighbours=5)[1] > 0.5
+    # Nothing alike at all: no label is favoured.
+    assert clip_examples.vote([-1.0, -1.0], ["photo", "receipt"], labels) == [0.5, 0.5]
+
+
+def test_examples_can_be_limited_per_label_and_the_pick_is_repeatable():
+    rows = [{"id": "s%02d" % i, "true_label": "photo" if i < 8 else "receipt"} for i in range(10)]
+    picked = clip_examples.pick_examples(rows, per_label=3)
+    assert sorted(r["true_label"] for r in picked) == ["photo"] * 3 + ["receipt"] * 2
+    assert picked == clip_examples.pick_examples(list(reversed(rows)), per_label=3)
+    assert len(clip_examples.pick_examples(rows)) == 10
+
+
+def test_a_model_only_chooses_among_the_labels_the_rules_leave_possible():
+    labels = ["text-thread", "photo", "thing"]
+    assert combined.narrowed([0.5, 0.3, 0.2], labels, set()) == ("text-thread", 0.5)
+    label, confidence = combined.narrowed([0.5, 0.3, 0.2], labels, {"text-thread"})
+    assert label == "photo" and confidence == pytest.approx(0.6)
+    assert combined.narrowed([0.5, 0.3, 0.2], labels, set(labels)) == (None, 0.0)
+
+
+class FixedShares:
+    """A model that gives every picture the same shares."""
+    name = "fixed"
+
+    def __init__(self, labels, shares):
+        self.labels, self.shares = labels, shares
+
+    def configure(self, eval_data):
+        pass
+
+    def scores(self, paths):
+        return self.labels, [self.shares for _ in paths]
+
+
+def test_a_sure_rule_decides_and_an_unsure_one_leaves_it_to_the_model(tmp_path):
+    eval_data = labelled_set(tmp_path, [("photo", "tuning"), ("photo", "tuning")])
+    rows, _ = evaluate.labelled_rows(eval_data, "tuning", "shows")
+    model = FixedShares(["text-thread", "photo"], [0.6, 0.4])
+    not_thread = rules.Rule("every file: not a text thread", None, lambda f: True,
+                            rules_out="text-thread")
+    assert rules.ruled_out([not_thread], {}) == {"text-thread"}
+    sure = rules.Rule("every file is a receipt", "receipt", lambda f: True, confidence=0.99)
+    unsure = rules.Rule("every file is a receipt", "receipt", lambda f: True, confidence=0.80)
+    paths = [r["path"] for r in rows]
+    for rule_list, expected in (([sure], "receipt"), ([unsure], "text-thread"),
+                                ([not_thread, unsure], "photo"), ([], "text-thread")):
+        candidate = combined.RulesThenModel(rule_list, model, "shows")
+        candidate.configure(eval_data)
+        assert [label for label, _ in candidate.predict(paths)] == [expected, expected]
