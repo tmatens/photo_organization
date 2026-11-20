@@ -32,8 +32,8 @@ reduced weight when it works out precision.
 
 Usage:
   python experiments/topup.py fetch --source undated
-  python experiments/topup.py pick --field shows --label receipt --label text-messages --also type=png
-  python experiments/topup.py add --field shows --label receipt --label text-messages
+  python experiments/topup.py pick --field shows --label receipt --label text-thread --also type=png
+  python experiments/topup.py add --field shows --label receipt --label text-thread
 """
 import argparse
 import json

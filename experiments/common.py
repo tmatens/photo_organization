@@ -44,8 +44,9 @@ FIELD_LABELS = {
                          "group"),
     ],
     "shows": [
-        ("text-messages", "A text or chat conversation between people. A comment thread under a "
-                          "social media post is not this"),
+        ("text-thread", "A back-and-forth of written messages between people: a text or chat "
+                        "conversation, a comment thread under a social media post, a forum or "
+                        "email thread"),
         ("receipt", "Proof of a purchase or payment: a till receipt, an invoice, a bill, an order "
                     "confirmation or a transaction, on paper or on a screen"),
         ("document", "A letter, form, flyer, schedule, map, card or page of a PDF: something that is, "
@@ -71,7 +72,7 @@ FIELD_TIE_RULE = {
             "is a screen-capture. A camera picture of a printed photo or of a page is a paper-copy. "
             "A collage put together from camera photos is a camera-photo.",
     "shows": "Judge only what is on it, never how it was made. When two labels fit, the one that "
-             "comes first in this order wins: text-messages, receipt, document, drawing, "
+             "comes first in this order wins: text-thread, receipt, document, drawing, "
              "product, meme-or-graphic, thing, nothing-special.",
 }
 

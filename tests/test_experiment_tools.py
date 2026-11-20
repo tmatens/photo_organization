@@ -480,13 +480,13 @@ def test_fetch_copies_only_the_files_that_were_not_sampled_and_changes_no_source
 
 def test_a_file_is_picked_by_the_model_or_by_a_fact_and_the_reason_is_kept():
     pool = [{"id": "p1"}, {"id": "p2"}, {"id": "p3"}, {"id": "p4"}]
-    labels = ["receipt", "text-messages", "nothing-special"]
+    labels = ["receipt", "text-thread", "nothing-special"]
     shares = [[0.05, 0.02, 0.93],       # neither net
               [0.06, 0.06, 0.88],       # the two wanted labels together reach the share
               [0.00, 0.01, 0.99],       # only the fact
               [0.70, 0.10, 0.20]]       # both
     fact_rows = [{"type": "jpg"}, {"type": "jpg"}, {"type": "png"}, {"type": "png"}]
-    picks = topup.choose(pool, labels, shares, ["receipt", "text-messages"], fact_rows,
+    picks = topup.choose(pool, labels, shares, ["receipt", "text-thread"], fact_rows,
                          topup.parse_also(["type=png"]), min_share=0.10)
     assert [(p["id"], p["why"], p["model_label"]) for p in picks] == [
         ("p4", "model+facts", "receipt"), ("p2", "model", "nothing-special"),
@@ -506,13 +506,13 @@ def test_confirmed_picks_join_the_sample_as_top_ups_shared_between_the_halves(tm
     common.write_csv(eval_data / "topup" / "answers.csv", topup.ANSWER_COLUMNS, [
         {"id": pool[0]["id"], "made": "screen-capture", "shows": "receipt"},
         {"id": pool[1]["id"], "made": "screen-capture", "shows": "receipt"},
-        {"id": pool[2]["id"], "made": "screen-capture", "shows": "text-messages"},
+        {"id": pool[2]["id"], "made": "screen-capture", "shows": "text-thread"},
         {"id": pool[3]["id"], "made": "camera-photo", "shows": "nothing-special"}])   # not wanted
-    argv = ["add", "--field", "shows", "--label", "receipt", "--label", "text-messages",
+    argv = ["add", "--field", "shows", "--label", "receipt", "--label", "text-thread",
             "--eval-data", str(eval_data)]
     topup.main(argv)
     out = capsys.readouterr().out
-    assert "2 added as receipt" in out and "1 added as text-messages" in out
+    assert "2 added as receipt" in out and "1 added as text-thread" in out
 
     rows = common.load_sample(eval_data)
     added = [r for r in rows if r["drawn"] == "top-up"]
@@ -521,7 +521,7 @@ def test_confirmed_picks_join_the_sample_as_top_ups_shared_between_the_halves(tm
     assert all(common.sample_file(eval_data, r).is_file() for r in added)
     shows = {r["id"]: r for r in common.read_csv(common.field_file(eval_data, "shows", "labels.csv"))}
     made = {r["id"]: r for r in common.read_csv(common.field_file(eval_data, "made", "labels.csv"))}
-    assert sorted(shows[r["id"]]["guessed_label"] for r in added) == ["receipt", "receipt", "text-messages"]
+    assert sorted(shows[r["id"]]["guessed_label"] for r in added) == ["receipt", "receipt", "text-thread"]
     assert all(made[r["id"]]["guessed_label"] == "screen-capture" for r in added)
     assert all(shows[r["id"]]["confirmed_label"] == "" for r in added)       # still to be reviewed
     receipts = [r for r in added if shows[r["id"]]["guessed_label"] == "receipt"]

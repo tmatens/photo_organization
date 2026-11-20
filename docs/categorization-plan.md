@@ -81,7 +81,7 @@ with exactly one answer to each question.
 
 | Label | What counts |
 |---|---|
-| `text-messages` | A text or chat conversation between people. A comment thread under a social media post is not this |
+| `text-thread` | A back-and-forth of written messages between people: a text or chat conversation, a comment thread under a social media post, a forum or email thread |
 | `receipt` | Proof of a purchase or payment: a till receipt, an invoice, a bill, an order confirmation or a transaction, on paper or on a screen |
 | `document` | A letter, form, flyer, schedule, map, card or page of a PDF: something that is, or would be, a sheet of paper. An ordinary web page or email is not this |
 | `drawing` | A drawing, painting or handwriting made by hand, where the artwork fills the picture |
