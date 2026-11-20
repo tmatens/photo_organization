@@ -358,3 +358,40 @@ Filled in as candidates are measured. Final-check half only; totals only.
 | Candidate | Label | Precision | Recall | Threshold | Images/s (CPU) | Extra install |
 |---|---|---|---|---|---|---|
 | | | | | | | |
+
+### Step 2b on the tuning half: what plain rules decide
+
+Not a result: these are tuning-half numbers, here to show what the rules
+are for. The tuning half is 623 files, 23 of them top-ups. For "what it
+shows", 283 were looked at by the owner and 340 were accepted unseen after
+a spot check of 60. For "how it was made", none were looked at by the
+owner: the labels are one labeller's, so those numbers are provisional.
+
+Each rule alone:
+
+| Question | Rule | Label | Files decided | Right | Finds |
+|---|---|---|---|---|---|
+| made | The camera recorded its make | `camera-photo` | 300 | 99% | 59% |
+| made | A PNG file | `screen-capture` | 52 | 95% | 51% |
+| made | No camera make, more than twice as tall as wide | `screen-capture` | 56 | 95% | 55% |
+| made | No camera make, almost no flat colour | `camera-photo` | 169 | 98% | 33% |
+| shows | The camera recorded its make | `photo` | 300 | 91% | 65% |
+
+All rules of a question together, at the 95% precision bar:
+
+| Question | Label | Files | Found | Right |
+|---|---|---|---|---|
+| made | `camera-photo` | 501 | 92% | 99% |
+| made | `screen-capture` | 99 | 51% | 95% |
+| made | `saved-image` | 16 | none | |
+| made | `paper-copy` | 7 | none | |
+| shows | every label | 623 | none | |
+
+The rules decide 524 of 623 files for how a file was made and leave 99
+undecided. For what a file shows they reach the bar for no label: the one
+rule that decides anything calls 300 files `photo` and is right for 91%,
+because a camera also takes the pictures of things, rooms, cars and
+drawings. What a camera make does settle is what a file is not: none of
+the 300 was a text thread, a receipt on a screen or some other screen.
+So the rules' use for "what it shows" is to narrow a model's choices, not
+to replace it.
