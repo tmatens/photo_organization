@@ -485,3 +485,48 @@ the rest are left for a person. The average keeps what each model was
 good at: photos from the examples, the thin labels from the
 descriptions. The rules now help a little, on `text-thread` and
 `receipt`, where a file type settles what the model was unsure of.
+
+### Step 4, third round: better descriptions, and other models
+
+Tuning half, 623 files, same caveats. Two things changed.
+
+**The descriptions.** Reading the mistakes showed two causes. `ticket`
+was described as "a ticket for an event" and "a travel itinerary", which
+matched photos of events and trips: 36 files were called a ticket and 2
+were. It is now described as a screen. And six sentences could not cover
+what an ordinary library's photos show, so `photo` got ten more. With the
+first model, descriptions alone went from 482 to 533 right. Five further
+changes, to the labels that are screens of text, moved nothing: each
+gained a few files in one label and lost them in another. Sentences do
+not make this kind of model read the words on a screen.
+
+**The models.** Six, each measured three ways with the same descriptions
+and the same examples:
+
+| Model | Download | Descriptions | Examples | Rules, then both | Images/s |
+|---|---|---|---|---|---|
+| CLIP ViT-B/32 | 608 MB | 533 | 554 | 561 | 6.0 |
+| SigLIP base, patch 16 | 816 MB | 532 | 542 | 559 | 4.2 |
+| CLIP ViT-L/14 | 1,714 MB | 505 | 548 | 558 | 2.4 |
+| CLIP ViT-B/16 | 601 MB | 516 | 541 | 554 | 4.7 |
+| MobileCLIP S0 | 218 MB | 510 | 534 | 551 | 6.3 |
+| MobileCLIP S2 | 399 MB | 520 | 538 | 550 | 5.5 |
+
+The speed is for the last column, the full candidate.
+
+- No model beats the first one. With everything combined all six land
+  within 11 files of each other, and the first is the best and nearly the
+  fastest.
+- A bigger download buys nothing here. The largest model is three times
+  the size, runs at under half the speed bar, and scores 3 files lower.
+- The smallest, MobileCLIP S0, is 10 files behind at a third of the
+  download. If size decides, it is a real choice.
+- The descriptions were rewritten while looking only at the first model,
+  and every other model gained from them too, the weakest most (407 to
+  510). The wording was the problem, not the models.
+- The larger and newer models clear the bar on `receipt` where the first
+  does not, and miss it on `interior` where the first clears it. Both
+  rest on fewer than 20 files.
+
+What the models differ in is small beside what the examples add. The next
+gain is more confirmed pictures of the thin labels, not another model.
