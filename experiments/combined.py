@@ -14,6 +14,9 @@ anything that ships with a model. For each file:
 Usage:
   python experiments/evaluate.py --candidate combined --field shows --half tuning
   python experiments/evaluate.py --candidate combined:SHOWS_EXAMPLES --field shows --half tuning
+  python experiments/evaluate.py --candidate combined:SHOWS_BLEND --field shows --half tuning
+
+SHOWS_BLEND is descriptions and examples together, without rules: see Blend.
 """
 import os
 import sys
@@ -69,7 +72,50 @@ class RulesThenModel:
         return answers
 
 
+def blend(shares_a, labels_a, shares_b, labels_b):
+    """(labels, shares): the average of two models' shares for one picture.
+
+    Only labels that model B knows take part. For the examples model that
+    means labels with at least one confirmed picture: a label nobody has an
+    example of is switched off, because with descriptions alone an empty
+    label still attracts files that belong elsewhere. Model A's shares are
+    rescaled over the labels that remain, so both add up to 1."""
+    total = sum(share for share, label in zip(shares_a, labels_a) if label in labels_b)
+    a = {label: (share / total if total > 0 else 0.0)
+         for share, label in zip(shares_a, labels_a) if label in labels_b}
+    return list(labels_b), [(a.get(label, 0.0) + share) / 2 for share, label in zip(shares_b, labels_b)]
+
+
+class Blend:
+    """Descriptions and examples together: each picture gets the average of
+    the two models' shares. Descriptions carry the labels with few
+    examples; examples carry the ones with many."""
+
+    def __init__(self, described, by_example, field):
+        self.described = described
+        self.by_example = by_example
+        self.field = field
+        self.name = "%s+%s" % (described.name, by_example.name.rsplit("-", 1)[-1])
+
+    def configure(self, eval_data):
+        self.described.configure(eval_data)
+        self.by_example.configure(eval_data)
+
+    def scores(self, paths):
+        labels_a, rows_a = self.described.scores(paths)
+        labels_b, rows_b = self.by_example.scores(paths)
+        rows = [blend(a, labels_a, b, labels_b)[1] for a, b in zip(rows_a, rows_b)]
+        return list(labels_b), rows
+
+    def predict(self, paths):
+        labels, rows = self.scores(paths)
+        return [narrowed(row, labels, set()) for row in rows]
+
+
 MADE = RulesThenModel(rules_module.RULES["made"], clip_local.ClipZeroShot("made"), "made")
 SHOWS = RulesThenModel(rules_module.RULES["shows"], clip_local.ClipZeroShot("shows"), "shows")
 MADE_EXAMPLES = RulesThenModel(rules_module.RULES["made"], clip_examples.ClipExamples("made"), "made")
 SHOWS_EXAMPLES = RulesThenModel(rules_module.RULES["shows"], clip_examples.ClipExamples("shows"), "shows")
+SHOWS_BLEND = Blend(clip_local.ClipZeroShot("shows"), clip_examples.ClipExamples("shows"), "shows")
+MADE_BLEND = Blend(clip_local.ClipZeroShot("made"), clip_examples.ClipExamples("made"), "made")
+SHOWS_RULES_BLEND = RulesThenModel(rules_module.RULES["shows"], SHOWS_BLEND, "shows")
