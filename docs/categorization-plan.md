@@ -86,8 +86,9 @@ with exactly one answer to each question.
 | `document` | A letter, form, flyer, schedule, map, card or page of a PDF: something that is, or would be, a sheet of paper. An ordinary web page or email is not this |
 | `drawing` | A drawing, painting or handwriting made by hand, where the artwork fills the picture |
 | `product` | A product picture or a shop page saved from the web, with nothing bought: one item, or several put together in a collage |
+| `interior` | The inside of a building with no person or pet as the subject: a room, a hallway, a piece of decor in place, whether your own picture or a saved decorating idea |
 | `meme-or-graphic` | A meme, a quote card, an infographic, a logo, an advert or another made image |
-| `thing` | Your own picture that records or shows a thing, with no person as the subject: an item for sale, damage or a repair, something you own, a room, a sign |
+| `thing` | Your own picture that records or shows a thing, with no person as the subject: an item for sale, damage or a repair, something you own, a sign |
 | `nothing-special` | None of the above: people, pets, places, events, food, or a screen that shows nothing listed here. The default, and the largest group |
 
 The old labels map onto these. A `screenshot` is a `screen-capture` that

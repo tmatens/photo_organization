@@ -55,10 +55,13 @@ FIELD_LABELS = {
                     "picture"),
         ("product", "A product picture or a shop page saved from the web, with nothing bought: one "
                     "item, or several put together in a collage"),
+        ("interior", "The inside of a building with no person or pet as the subject: a room, a "
+                     "hallway, a piece of decor in place, whether your own picture or a saved "
+                     "decorating idea"),
         ("meme-or-graphic", "A meme, a quote card, an infographic, a logo, an advert or another made "
                             "image"),
         ("thing", "Your own picture that records or shows a thing, with no person as the subject: "
-                  "an item for sale, damage or a repair, something you own, a room, a sign"),
+                  "an item for sale, damage or a repair, something you own, a sign"),
         ("nothing-special", "None of the above: people, pets, places, events, food, or a screen that "
                             "shows nothing listed here. The default, and the largest group"),
     ],
@@ -73,7 +76,7 @@ FIELD_TIE_RULE = {
             "A collage put together from camera photos is a camera-photo.",
     "shows": "Judge only what is on it, never how it was made. When two labels fit, the one that "
              "comes first in this order wins: text-thread, receipt, document, drawing, "
-             "product, meme-or-graphic, thing, nothing-special.",
+             "product, interior, meme-or-graphic, thing, nothing-special.",
 }
 
 # The list for the first look at a new sample, before the two fields are
