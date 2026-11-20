@@ -241,14 +241,14 @@ def test_a_candidate_is_picked_for_the_field_and_refused_for_the_other(tmp_path)
 
 
 def test_each_field_keeps_its_own_labels_and_results(tmp_path, capsys):
-    eval_data = labelled_set(tmp_path, [("receipt", "tuning"), ("nothing-special", "tuning")])
+    eval_data = labelled_set(tmp_path, [("receipt", "tuning"), ("photo", "tuning")])
     made = [dict(r, guessed_label="screen-capture", confirmed_label="screen-capture")
             for r in common.read_csv(eval_data / "labels" / "shows" / "labels.csv")]
     common.write_csv(eval_data / "labels" / "made" / "labels.csv", common.LABEL_COLUMNS, made)
     assert {r["true_label"] for r in evaluate.labelled_rows(eval_data, "tuning", "made")[0]} == \
         {"screen-capture"}
     assert {r["true_label"] for r in evaluate.labelled_rows(eval_data, "tuning", "shows")[0]} == \
-        {"receipt", "nothing-special"}
+        {"receipt", "photo"}
     evaluate.main(["--candidate", "rules", "--field", "made", "--eval-data", str(eval_data)])
     assert (eval_data / "results" / "made" / "rules_tuning_summary.json").is_file()
     assert not (eval_data / "results" / "shows").exists()

@@ -17,7 +17,7 @@ script.
 
 In the final-check half every file is looked at. The tuning half may be
 reviewed more loosely: look at all of the small labels, spot-check the big
-default pile (camera-photo, or nothing-special) with --spot-check, then
+default pile (camera-photo, or photo) with --spot-check, then
 accept the rest of that pile unseen with --accept-rest. Files accepted unseen are marked as such.
 
 A second opinion makes the review shorter. If eval_data/labels/<field>/
@@ -35,7 +35,7 @@ only measure of how often that happens.
 Usage:
   python experiments/review.py --field shows --half tuning
   python experiments/review.py --field shows --half tuning --spot-check 60
-  python experiments/review.py --field shows --half tuning --accept-rest nothing-special
+  python experiments/review.py --field shows --half tuning --accept-rest photo
   python experiments/review.py --field shows --half tuning --accept-rest all
   python experiments/review.py --field shows --stats
 """
