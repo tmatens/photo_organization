@@ -83,6 +83,8 @@ with exactly one answer to each question.
 |---|---|
 | `text-thread` | A back-and-forth of written messages between people: a text or chat conversation, a comment thread under a social media post, a forum or email thread |
 | `receipt` | Proof of a purchase or payment: a till receipt, an invoice, a bill, an order confirmation or a transaction, on paper or on a screen |
+| `ticket` | A ticket, a boarding pass, a booking or a travel itinerary, on paper or on a screen, whether or not it shows a price |
+| `cart` | A shopping cart or basket: items chosen in a shop's site or app but not yet paid for |
 | `document` | A letter, form, flyer, schedule, map, card or page of a PDF: something that is, or would be, a sheet of paper. An ordinary web page or email is not this |
 | `drawing` | A drawing, painting or handwriting made by hand, where the artwork fills the picture |
 | `product` | A product picture or a shop page saved from the web, with nothing bought: one item, or several put together in a collage |

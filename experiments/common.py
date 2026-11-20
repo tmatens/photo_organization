@@ -49,6 +49,10 @@ FIELD_LABELS = {
                         "email thread"),
         ("receipt", "Proof of a purchase or payment: a till receipt, an invoice, a bill, an order "
                     "confirmation or a transaction, on paper or on a screen"),
+        ("ticket", "A ticket, a boarding pass, a booking or a travel itinerary, on paper or on a "
+                   "screen, whether or not it shows a price"),
+        ("cart", "A shopping cart or basket: items chosen in a shop's site or app but not yet "
+                 "paid for"),
         ("document", "A letter, form, flyer, schedule, map, card or page of a PDF: something that is, "
                      "or would be, a sheet of paper. An ordinary web page or email is not this"),
         ("drawing", "A drawing, painting or handwriting made by hand, where the artwork fills the "
@@ -75,7 +79,8 @@ FIELD_TIE_RULE = {
             "is a screen-capture. A camera picture of a printed photo or of a page is a paper-copy. "
             "A collage put together from camera photos is a camera-photo.",
     "shows": "Judge only what is on it, never how it was made. When two labels fit, the one that "
-             "comes first in this order wins: text-thread, receipt, document, drawing, "
+             "comes first in this order wins: text-thread, receipt, ticket, cart, document, "
+             "drawing, "
              "product, interior, meme-or-graphic, thing, nothing-special.",
 }
 
