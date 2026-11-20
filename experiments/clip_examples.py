@@ -82,7 +82,7 @@ class ClipExamples:
         rows, _unreviewed = evaluate.labelled_rows(self.eval_data, "tuning", self.field)
         examples = pick_examples(rows, self.per_label)
         clip = clip_local.Clip(self.eval_data)
-        vectors = clip.embed_images([r["path"] for r in examples])
+        vectors = clip_local.embed_once(clip, [r["path"] for r in examples])
         labels = list(dict.fromkeys(r["true_label"] for r in sorted(rows, key=lambda r: r["true_label"])))
         self.loaded = (clip, vectors, [r["true_label"] for r in examples],
                        [str(Path(r["path"]).resolve()) for r in examples], labels)
@@ -93,7 +93,7 @@ class ClipExamples:
         if self.loaded is None:
             self.load()
         clip, vectors, example_labels, example_paths, labels = self.loaded
-        similarities = clip.embed_images(list(paths)) @ vectors.T
+        similarities = clip_local.embed_once(clip, list(paths)) @ vectors.T
         rows = []
         for path, row in zip(paths, similarities):
             row = row.copy()

@@ -348,3 +348,14 @@ def test_a_sure_rule_decides_and_an_unsure_one_leaves_it_to_the_model(tmp_path):
         candidate = combined.RulesThenModel(rule_list, model, "shows")
         candidate.configure(eval_data)
         assert [label for label, _ in candidate.predict(paths)] == [expected, expected]
+
+
+def test_two_models_are_averaged_and_a_label_without_examples_is_switched_off():
+    described = (["cart", "photo", "receipt"], [0.5, 0.25, 0.25])
+    by_example = (["photo", "receipt"], [0.9, 0.1])
+    labels, shares = combined.blend(described[1], described[0], by_example[1], by_example[0])
+    assert labels == ["photo", "receipt"]            # nobody has an example of a cart
+    assert shares == pytest.approx([(0.5 + 0.9) / 2, (0.5 + 0.1) / 2])
+    assert sum(shares) == pytest.approx(1.0)
+    both = combined.Blend(FixedShares(*described), FixedShares(*by_example), "shows")
+    assert both.predict(["a.jpg"]) == [("photo", pytest.approx(0.7))]

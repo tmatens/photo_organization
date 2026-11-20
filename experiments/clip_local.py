@@ -327,6 +327,22 @@ class Clip:
         return unit(np.stack(rows))
 
 
+_VECTORS = {}
+
+
+def embed_once(clip, paths):
+    """clip.embed_images, but a picture already seen in this run is not
+    worked out again. Two candidates that use the same model on the same
+    files then cost one pass, as they would in a real tool."""
+    import numpy as np
+    keys = [os.path.abspath(str(p)) for p in paths]
+    todo = [k for k in dict.fromkeys(keys) if k not in _VECTORS]
+    if todo:
+        for key, vector in zip(todo, clip.embed_images(todo)):
+            _VECTORS[key] = vector
+    return np.stack([_VECTORS[k] for k in keys])
+
+
 def descriptions_from(categories):
     """([description], [label of each description]) from a categories dict.
     A label without its own descriptions falls back to the starting ones."""
@@ -367,7 +383,7 @@ class ClipZeroShot:
             texts, labels_of = descriptions_from(json.loads(path.read_text(encoding="utf-8")))
             self.loaded = (clip, clip.embed_texts(texts), labels_of)
         clip, description_vectors, labels_of = self.loaded
-        return shares(clip.embed_images(list(paths)), description_vectors, labels_of)
+        return shares(embed_once(clip, list(paths)), description_vectors, labels_of)
 
     def predict(self, paths):
         labels, share_rows = self.scores(paths)

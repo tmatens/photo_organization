@@ -448,3 +448,40 @@ What the first round shows:
   `music-app`) and `ticket` still attract screen captures that belong
   elsewhere. An empty label is not free.
 - Only `photo` has enough files for its number to be firm.
+
+### Step 4, second round: descriptions and examples together
+
+Tuning half again, 623 files, same caveats. Each picture gets the average
+of the two models' shares, and a label with no confirmed picture is
+switched off. Six ways of combining the two were tried; they differ by a
+handful of files, which is within the noise of labels this small, so the
+plainest one (the average) is kept. Each picture is now read once however
+many candidates share the model.
+
+| Candidate | Right | Images/s |
+|---|---|---|
+| Descriptions and examples averaged | 557 of 623 (89%) | 9.6 |
+| Rules, then that | 557 of 623 (89%) | 6.0 |
+
+Share of each label found at 95% precision or better, rules in front:
+
+| Label | Files | Found | Clears the step 5 bars |
+|---|---|---|---|
+| `photo` | 422 | 95% | yes |
+| `screen-other` | 35 | 43% | no |
+| `text-thread` | 27 | 78% | yes, on few files |
+| `thing` | 22 | 32% | no |
+| `interior` | 16 | 88% | yes, on few files |
+| `meme-or-graphic` | 16 | 50% | no |
+| `receipt` | 11 | 27% | no |
+| `document` | 9 | 11% | no |
+| `product` | 7 | none | no |
+| `car` | 5 | 100% | yes, on very few files |
+| `drawing` | 3 | none | no |
+| `ticket` | 2 | none | no |
+
+At those thresholds 515 of the 623 files are given their right label and
+the rest are left for a person. The average keeps what each model was
+good at: photos from the examples, the thin labels from the
+descriptions. The rules now help a little, on `text-thread` and
+`receipt`, where a file type settles what the model was unsure of.
