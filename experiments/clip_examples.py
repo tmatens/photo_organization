@@ -81,9 +81,12 @@ def stored_vectors(eval_data, field, model, clip, examples):
     path = examples_file(eval_data, field, model)
     ids = [r["id"] for r in examples]
     if path.exists():
-        saved = np.load(path)
-        if str(saved["made_by"]) == model["base_url"] and list(saved["ids"]) == ids:
-            return saved["vectors"]
+        # Read it all and close it at once: Windows will not replace a file
+        # that is still open.
+        with np.load(path) as saved:
+            made_by, saved_ids, vectors = str(saved["made_by"]), list(saved["ids"]), saved["vectors"]
+        if made_by == model["base_url"] and saved_ids == ids:
+            return vectors
     vectors = clip_local.embed_once(clip, [r["path"] for r in examples])
     path.parent.mkdir(parents=True, exist_ok=True)
     # numpy adds .npz to a name that lacks it, so the temporary name keeps it.
